@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "automatic",
     "scheme": "dfbarbershop",
     "ios": {
       "bundleIdentifier": "it.dfbarbershop.prenota",
@@ -29,8 +29,12 @@
         "expo-splash-screen",
         {
           "image": "./assets/splash-icon.png",
-          "backgroundColor": "#000000",
-          "imageWidth": 300
+          "backgroundColor": "#FAF8F3",
+          "imageWidth": 300,
+          "dark": {
+            "image": "./assets/splash-icon.png",
+            "backgroundColor": "#000000"
+          }
         }
       ],
       "expo-notifications",

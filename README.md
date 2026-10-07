@@ -22,4 +22,11 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=la_chiave_anon
 
 Le chiavi Stripe e la `service_role` non vanno mai in un file: stanno solo come segreti su Supabase.
 
+## Tema chiaro e scuro
+
+- **Telefono (iPhone e Android):** l'app segue il tema del sistema, in automatico.
+- **Web:** parte in automatico (segue il browser); dalla pagina iniziale (pulsante in alto a destra), da *Profilo* (clienti) e da *Altro* (titolare e barbieri) si può scegliere Automatico, Chiaro o Scuro. La scelta resta salvata nel browser.
+- Per far funzionare il tema chiaro anche su Android installa una volta `npx expo install expo-system-ui`; poi rifai la build dell'app (la modifica di `app.json` vale solo con una nuova build).
+- I colori dei due temi stanno in cima a `App.tsx` (`DARK` e `LIGHT`).
+
 La versione per vendere l'app ad altre barberie è nella repo `Barber`.

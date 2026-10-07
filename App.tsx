@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { LayoutChangeEvent, StyleProp, TextInputProps, ViewStyle } from 'react-native';
-import { AccessibilityInfo, ActivityIndicator, Alert as RNAlert, Animated, Easing, Image, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { AccessibilityInfo, ActivityIndicator, Alert as RNAlert, Animated, Easing, Image, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useColorScheme, useWindowDimensions, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -30,13 +30,82 @@ const Alert: typeof RNAlert =
       } as any)
     : RNAlert;
 
-// Palette ricavata dal logo DFBARBER: oro su nero caldo
-const C = {
+// ───────── Tema chiaro e scuro ─────────
+// Scuro: oro su nero caldo (dal logo DFBARBER). Chiaro: bianco caldo; testi e icone dorati usano un oro più scuro, leggibile sul bianco.
+// Sul telefono l'app segue il tema del sistema; sul web si sceglie fra Automatico, Chiaro e Scuro (la scelta resta nel browser).
+const DARK = {
   bg: '#070706', card: '#11100E', card2: '#1A1815', line: '#2A2722',
-  text: '#F8F4EA', muted: '#A39D8E', accent: '#ECC052', accent2: '#B98A22', accentSoft: '#ECC05224', danger: '#FF6B5E',
+  text: '#F8F4EA', muted: '#A39D8E',
+  accent: '#ECC052', accent2: '#B98A22', accentSoft: '#ECC05224',
+  accentText: '#ECC052',            // oro per testi e icone
+  accentBorder: '#ECC052',          // oro per i bordi di selezione
+  accentLine: 'rgba(236,192,82,0.35)', accentLine2: 'rgba(236,192,82,0.6)',
+  danger: '#FF6B5E', dangerSoft: 'rgba(255,107,94,0.14)', ok: '#3DDC84', series2: '#8C877A',
+  // sfumature di sfondo
+  heroA: '#2B2111', heroB: '#0B0A07', welA: '#17120A', tabEnd: '#1E170B',
+  tileA: '#2E2410', tileB: '#14110A', photoA: '#3A2D12', photoB: '#15110A', barberA: '#2A2415', barberB: '#12100B',
+  loyA: '#2E2410', loyB: '#0F0E0A', mapA: '#14120D', mapB: '#0A0907',
+  // ombre, vetro, calendario, pagina iniziale
+  scrim: 'rgba(0,0,0,0.65)', shadow: '#000000', shadowO: 0.5,
+  glassBorder: 'rgba(255,255,255,0.18)', glassA: 'rgba(255,255,255,0.18)', glassB: 'rgba(255,255,255,0.04)',
+  glassTint: 'rgba(236,192,82,0.10)', nativeTint: 'rgba(236,192,82,0.14)',
+  calCard: 'rgba(17,16,14,0.92)', calBar: 'rgba(11,10,7,0.96)', calOff: 'rgba(163,157,142,0.35)',
+  welTitle: '#F3E3B3', welLine: 'rgba(236,192,82,0.7)', welGhostBg: 'rgba(255,255,255,0.04)',
   // alias usati più in basso nel codice
   ink: '#F8F4EA', paper: '#070706', steel: '#A39D8E', red: '#FF6B5E',
 };
+const LIGHT: typeof DARK = {
+  bg: '#FAF8F3', card: '#FFFFFF', card2: '#F2EEE4', line: '#DCD5C2',
+  text: '#1A160D', muted: '#6B6554',
+  accent: '#ECC052', accent2: '#B98A22', accentSoft: 'rgba(185,138,34,0.14)',
+  accentText: '#7F5C0D',
+  accentBorder: '#B38420',
+  accentLine: 'rgba(185,138,34,0.40)', accentLine2: 'rgba(185,138,34,0.65)',
+  danger: '#C8362B', dangerSoft: 'rgba(200,54,43,0.10)', ok: '#178A49', series2: '#746E5D',
+  heroA: '#F5E6B8', heroB: '#FAF1D9', welA: '#F3E2B0', tabEnd: '#F4EAD0',
+  tileA: '#F6E8BE', tileB: '#EBD79B', photoA: '#F3E3B3', photoB: '#E8D39A', barberA: '#F3E3B3', barberB: '#E8D39A',
+  loyA: '#F7E9BF', loyB: '#FFFFFF', mapA: '#EFE9DB', mapB: '#E4DCC8',
+  scrim: 'rgba(26,22,13,0.45)', shadow: '#3A2D0B', shadowO: 0.14,
+  glassBorder: 'rgba(0,0,0,0.08)', glassA: 'rgba(255,255,255,0.75)', glassB: 'rgba(255,255,255,0.35)',
+  glassTint: 'rgba(236,192,82,0.14)', nativeTint: 'rgba(236,192,82,0.18)',
+  calCard: 'rgba(255,255,255,0.96)', calBar: 'rgba(250,248,243,0.96)', calOff: 'rgba(107,101,84,0.35)',
+  welTitle: '#7A5708', welLine: 'rgba(185,138,34,0.7)', welGhostBg: 'rgba(255,255,255,0.6)',
+  ink: '#1A160D', paper: '#FAF8F3', steel: '#6B6554', red: '#C8362B',
+};
+type Mode = 'dark' | 'light';
+type ThemePref = 'auto' | 'light' | 'dark';
+let MODE: Mode = 'dark';
+const C: typeof DARK = { ...DARK };
+
+// Cambia tema: la palette si aggiorna sul posto e gli stili vengono ricreati
+function applyMode(m: Mode) {
+  if (m === MODE) return;
+  MODE = m;
+  Object.assign(C, m === 'light' ? LIGHT : DARK);
+  s = makeStyles();
+}
+
+// Scelta del tema sul web (sul telefono resta sempre "Automatico": segue il sistema)
+const THEME_KEY = 'df-tema';
+const webStore = (): any => { try { return Platform.OS === 'web' ? (globalThis as any).localStorage : null; } catch { return null; } };
+let THEME_PREF: ThemePref = (() => {
+  try { const v = webStore()?.getItem(THEME_KEY); return v === 'light' || v === 'dark' ? v : 'auto'; } catch { return 'auto'; }
+})();
+const themeListeners = new Set<() => void>();
+function setThemePref(p: ThemePref) {
+  THEME_PREF = p;
+  try { const st = webStore(); if (p === 'auto') st?.removeItem(THEME_KEY); else st?.setItem(THEME_KEY, p); } catch { /* senza archivio la scelta vale finché la pagina è aperta */ }
+  themeListeners.forEach((f) => f());
+}
+function useThemePref(): [ThemePref, (p: ThemePref) => void] {
+  const [, bump] = useState(0);
+  useEffect(() => {
+    const f = () => bump((n) => n + 1);
+    themeListeners.add(f);
+    return () => { themeListeners.delete(f); };
+  }, []);
+  return [THEME_PREF, setThemePref];
+}
 
 const ERR: Record<string, string> = {
   slot_not_available: 'Questo orario è appena stato preso. Scegline un altro.',
@@ -126,18 +195,18 @@ try {
 }
 
 function Glass({ children, style, radius = 22, tint }: { children?: ReactNode; style?: StyleProp<ViewStyle>; radius?: number; tint?: string }) {
-  const shell: ViewStyle = { borderRadius: radius, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)' };
+  const shell: ViewStyle = { borderRadius: radius, overflow: 'hidden', borderWidth: 1, borderColor: C.glassBorder };
   if (liquidOk) {
     return (
-      <NativeGlass glassEffectStyle="regular" tintColor={tint ?? 'rgba(236,192,82,0.14)'} colorScheme="dark" style={[shell, style]}>
+      <NativeGlass glassEffectStyle="regular" tintColor={tint ?? C.nativeTint} colorScheme={MODE} style={[shell, style]}>
         {children}
       </NativeGlass>
     );
   }
   return (
-    <BlurView intensity={50} tint="dark" style={[shell, style]}>
+    <BlurView intensity={50} tint={MODE} style={[shell, style]}>
       <LinearGradient
-        colors={['rgba(255,255,255,0.18)', 'rgba(255,255,255,0.04)', tint ?? 'rgba(236,192,82,0.10)']}
+        colors={[C.glassA, C.glassB, tint ?? C.glassTint]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
@@ -157,6 +226,44 @@ function Chip({ label, sub, on, onPress }: { label: string; sub?: string | null;
 }
 const Title = ({ t }: { t: string }) => <Text style={[s.h2, { marginTop: 24, marginBottom: 10 }]}>{t}</Text>;
 
+// Scelta del tema (solo web: sul telefono si segue il sistema)
+const THEME_LABEL: Record<ThemePref, string> = { auto: 'Automatico', light: 'Chiaro', dark: 'Scuro' };
+function ThemePicker() {
+  const [pref, setPref] = useThemePref();
+  return (
+    <>
+      <Title t="Aspetto" />
+      <View style={s.card}>
+        <View style={s.wrap}>
+          {(['auto', 'light', 'dark'] as ThemePref[]).map((id) => (
+            <Chip key={id} label={THEME_LABEL[id]} on={pref === id} onPress={() => setPref(id)} />
+          ))}
+        </View>
+        <Text style={[s.rowSub, { marginTop: 12 }]}>Automatico segue il tema del tuo dispositivo. La scelta resta salvata su questo browser.</Text>
+      </View>
+    </>
+  );
+}
+// Pulsante rapido per la pagina iniziale (web): Automatico → Chiaro → Scuro
+function ThemeToggle({ top }: { top: number }) {
+  const [pref, setPref] = useThemePref();
+  const next: ThemePref = pref === 'auto' ? 'light' : pref === 'light' ? 'dark' : 'auto';
+  const icon = pref === 'auto' ? 'contrast-outline' : pref === 'light' ? 'sunny-outline' : 'moon-outline';
+  return (
+    <Pressable
+      onPress={() => setPref(next)}
+      hitSlop={10}
+      accessibilityRole="button"
+      accessibilityLabel={`Tema: ${THEME_LABEL[pref]}. Tocca per cambiarlo`}
+      style={{ position: 'absolute', top, right: 16, zIndex: 5 }}
+    >
+      <Glass radius={20} style={s.logoutBtn}>
+        <Ionicons name={icon as any} size={20} color={C.text} />
+      </Glass>
+    </Pressable>
+  );
+}
+
 const Step = ({ n, t, done }: { n: number; t: string; done?: boolean }) => (
   <View style={s.stepRow}>
     <View style={[s.stepNum, done && s.stepNumOn]}>
@@ -169,10 +276,10 @@ const Step = ({ n, t, done }: { n: number; t: string; done?: boolean }) => (
 function Header({ onLogout, onMenu }: { onLogout: () => void; onMenu?: () => void }) {
   return (
     <View style={s.headerWrap}>
-      <LinearGradient colors={['#2B2111', C.bg]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={[C.heroA, C.bg]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
       <View style={s.header}>
         <Glass radius={22} style={s.logoPill}>
-          <Image source={require('./assets/logo-text.png')} style={s.headerLogo} resizeMode="contain" />
+          <Image source={MODE === 'dark' ? require('./assets/logo-text.png') : require('./assets/logo-text-light.png')} style={s.headerLogo} resizeMode="contain" />
         </Glass>
         <View style={{ flex: 1 }} />
         <Pressable onPress={onMenu ?? onLogout} hitSlop={12}>
@@ -332,8 +439,8 @@ function Shop({ cart, setCart, canEdit }: { cart: Cart; setCart: (c: Cart) => vo
               {p.image_url ? (
                 <Image source={{ uri: p.image_url }} style={s.productImg} resizeMode="contain" />
               ) : (
-                <LinearGradient colors={['#2E2410', '#14110A']} style={s.productIcon}>
-                  <Ionicons name="water-outline" size={32} color={C.accent} />
+                <LinearGradient colors={[C.tileA, C.tileB]} style={s.productIcon}>
+                  <Ionicons name="water-outline" size={32} color={C.accentText} />
                 </LinearGradient>
               )}
               <Text style={s.rowT} numberOfLines={2}>{p.name}</Text>
@@ -366,8 +473,8 @@ function Shop({ cart, setCart, canEdit }: { cart: Cart; setCart: (c: Cart) => vo
               {open.image_url ? (
                 <Image source={{ uri: open.image_url }} style={s.productImgBig} resizeMode="contain" />
               ) : (
-                <LinearGradient colors={['#2E2410', '#14110A']} style={s.productIconBig}>
-                  <Ionicons name="water-outline" size={56} color={C.accent} />
+                <LinearGradient colors={[C.tileA, C.tileB]} style={s.productIconBig}>
+                  <Ionicons name="water-outline" size={56} color={C.accentText} />
                 </LinearGradient>
               )}
               <Text style={s.h1}>{open.name}</Text>
@@ -545,7 +652,8 @@ function Welcome({ onIn, onUp }: { onIn: () => void; onUp: () => void }) {
 
   return (
     <View style={[s.welcome, { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 20) + 6 }]}>
-      <LinearGradient colors={['#17120A', '#0B0A07', C.bg]} locations={[0, 0.5, 1]} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={[C.welA, C.heroB, C.bg]} locations={[0, 0.5, 1]} style={StyleSheet.absoluteFill} />
+      {Platform.OS === 'web' && <ThemeToggle top={insets.top + 12} />}
 
       <View style={s.welBrand}>
         <View style={{ width: ring, height: ring, alignItems: 'center', justifyContent: 'center' }}>
@@ -556,7 +664,7 @@ function Welcome({ onIn, onUp }: { onIn: () => void; onUp: () => void }) {
             pointerEvents="none"
             style={{
               position: 'absolute', width: ring, height: ring, borderRadius: ring / 2,
-              borderWidth: 1, borderColor: 'rgba(236,192,82,0.36)',
+              borderWidth: 1, borderColor: C.accentLine,
               opacity: logo, transform: [{ scale: logo.interpolate({ inputRange: [0, 1], outputRange: [0.82, 1] }) }],
             }}
           />
@@ -599,7 +707,7 @@ function Welcome({ onIn, onUp }: { onIn: () => void; onUp: () => void }) {
             <Text style={s.welPrimaryT}>Accedi</Text>
           </LinearGradient>
         </Pressable>
-        <Pressable onPress={onUp} style={({ pressed }) => [s.welGhost, pressed && { backgroundColor: 'rgba(236,192,82,0.12)', transform: [{ scale: 0.985 }] }]}>
+        <Pressable onPress={onUp} style={({ pressed }) => [s.welGhost, pressed && { backgroundColor: C.accentSoft, transform: [{ scale: 0.985 }] }]}>
           <Text style={s.welGhostT}>Registrati</Text>
         </Pressable>
       </Animated.View>
@@ -616,7 +724,7 @@ function AuthShell({ title, sub, onBack, children }: { title: string; sub: strin
         keyboardShouldPersistTaps="handled"
       >
         <Pressable style={s.authBack} onPress={onBack} hitSlop={12}>
-          <Ionicons name="chevron-back" size={20} color={C.accent} />
+          <Ionicons name="chevron-back" size={20} color={C.accentText} />
           <Text style={s.backT}>Indietro</Text>
         </Pressable>
         <Image source={require('./assets/logo.png')} style={s.authMini} resizeMode="contain" />
@@ -685,7 +793,7 @@ function LoginForm({ email0, onBack, onSwitch }: { email0: string; onBack: () =>
         <Text style={s.btnT}>{busy ? 'Un attimo…' : 'Accedi'}</Text>
       </Pressable>
       <Pressable onPress={onSwitch} style={{ marginTop: 18, alignItems: 'center' }}>
-        <Text style={s.muted}>Non hai un account? <Text style={{ color: C.accent, fontWeight: '700' }}>Registrati</Text></Text>
+        <Text style={s.muted}>Non hai un account? <Text style={{ color: C.accentText, fontWeight: '700' }}>Registrati</Text></Text>
       </Pressable>
     </AuthShell>
   );
@@ -793,7 +901,7 @@ function RegisterForm({ onBack, onSwitch, onHold, onDone }: { onBack: () => void
         <Text style={s.btnT}>{busy ? 'Un attimo…' : 'Crea account'}</Text>
       </Pressable>
       <Pressable onPress={onSwitch} style={{ marginTop: 18, alignItems: 'center' }}>
-        <Text style={s.muted}>Hai già un account? <Text style={{ color: C.accent, fontWeight: '700' }}>Accedi</Text></Text>
+        <Text style={s.muted}>Hai già un account? <Text style={{ color: C.accentText, fontWeight: '700' }}>Accedi</Text></Text>
       </Pressable>
     </AuthShell>
   );
@@ -831,11 +939,11 @@ function Registered({ info, onLogin }: { info: Done; onLogin: () => void }) {
   return (
     <Modal visible animationType="fade" presentationStyle="fullScreen" statusBarTranslucent onRequestClose={onLogin}>
       <View style={s.doneRoot}>
-        <LinearGradient colors={['#2B2111', '#0B0A07', C.bg]} locations={[0, 0.55, 1]} style={StyleSheet.absoluteFill} />
+        <LinearGradient colors={[C.heroA, C.heroB, C.bg]} locations={[0, 0.55, 1]} style={StyleSheet.absoluteFill} />
         <ScrollView contentContainerStyle={[s.doneBody, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 }]}>
           <View style={s.welGlowSm} />
           <Glass radius={60} style={s.doneIcon}>
-            <Ionicons name="checkmark" size={58} color={C.accent} />
+            <Ionicons name="checkmark" size={58} color={C.accentText} />
           </Glass>
           <Text style={s.doneKicker}>REGISTRAZIONE COMPLETATA</Text>
           <Text style={[s.doneTitle, { fontFamily: font }]}>Grazie, {info.first}!</Text>
@@ -904,8 +1012,8 @@ function BarberCard({ name, url, firstFree, fav, on, onPress }: { name: string; 
         {url && !firstFree ? (
           <Image source={{ uri: url }} style={s.bPhoto} />
         ) : (
-          <LinearGradient colors={['#3A2D12', '#15110A']} style={[s.bPhoto, { alignItems: 'center', justifyContent: 'center' }]}>
-            {firstFree ? <Ionicons name="flash" size={34} color={C.accent} /> : <Text style={s.bIni}>{ini}</Text>}
+          <LinearGradient colors={[C.photoA, C.photoB]} style={[s.bPhoto, { alignItems: 'center', justifyContent: 'center' }]}>
+            {firstFree ? <Ionicons name="flash" size={34} color={C.accentText} /> : <Text style={s.bIni}>{ini}</Text>}
           </LinearGradient>
         )}
         {fav && (
@@ -919,16 +1027,17 @@ function BarberCard({ name, url, firstFree, fav, on, onPress }: { name: string; 
           </View>
         )}
       </View>
-      <Text numberOfLines={2} style={[s.bName, on && { color: C.accent }]}>{name}</Text>
+      <Text numberOfLines={2} style={[s.bName, on && { color: C.accentText }]}>{name}</Text>
     </Pressable>
   );
 }
 
 // Storico del cliente con il barbiere scelto: appuntamenti passati e in programma, visite e punti guadagnati con lui
-const HIS_STATE: Record<string, { t: string; c: string; i: string }> = {
-  completed: { t: 'Completato', c: C.muted, i: 'checkmark-circle-outline' },
-  no_show: { t: 'Non presentato', c: C.danger, i: 'close-circle-outline' },
-};
+const hisState = (status: string): { t: string; c: string; i: string } | undefined =>
+  ({
+    completed: { t: 'Completato', c: C.muted, i: 'checkmark-circle-outline' },
+    no_show: { t: 'Non presentato', c: C.danger, i: 'close-circle-outline' },
+  } as Record<string, { t: string; c: string; i: string }>)[status];
 
 function BarberHistory({ uid, staffId, name, photo }: { uid: string; staffId: string; name: string; photo?: string | null }) {
   const [rows, setRows] = useState<any[] | null>(null); // null = in caricamento
@@ -982,10 +1091,10 @@ function BarberHistory({ uid, staffId, name, photo }: { uid: string; staffId: st
 
   const row = (r: any, soon: boolean) => {
     const d = new Date(r.starts_at);
-    const st = HIS_STATE[r.status];
+    const st = hisState(r.status);
     const tz = r.salons?.timezone ?? 'Europe/Rome';
     return (
-      <View key={r.id} style={[s.hisRow, soon && { borderColor: C.accent, backgroundColor: C.accentSoft }]}>
+      <View key={r.id} style={[s.hisRow, soon && { borderColor: C.accentBorder, backgroundColor: C.accentSoft }]}>
         <View style={[s.hisDate, soon && { backgroundColor: C.accent }]}>
           <Text style={[s.hisDay, soon && { color: '#000' }]}>{d.toLocaleDateString('it-IT', { day: 'numeric', timeZone: tz })}</Text>
           <Text style={[s.hisMon, soon && { color: '#000' }]}>{d.toLocaleDateString('it-IT', { month: 'short', timeZone: tz }).replace('.', '')}</Text>
@@ -998,7 +1107,7 @@ function BarberHistory({ uid, staffId, name, photo }: { uid: string; staffId: st
           </Text>
         </View>
         {soon ? (
-          <Text style={[s.hisTag, { color: C.accent }]}>In programma</Text>
+          <Text style={[s.hisTag, { color: C.accentText }]}>In programma</Text>
         ) : st ? (
           <View style={s.hisState}>
             <Ionicons name={st.i as any} size={15} color={st.c} />
@@ -1020,12 +1129,12 @@ function BarberHistory({ uid, staffId, name, photo }: { uid: string; staffId: st
       </View>
 
       {rows === null ? (
-        <ActivityIndicator color={C.accent} style={{ marginVertical: 28 }} />
+        <ActivityIndicator color={C.accentText} style={{ marginVertical: 28 }} />
       ) : failed ? (
         <Text style={s.muted}>Non riesco a caricare lo storico adesso. Puoi prenotare lo stesso.</Text>
       ) : list.length === 0 ? (
         <View style={s.hisEmpty}>
-          <Ionicons name="cut-outline" size={26} color={C.accent} />
+          <Ionicons name="cut-outline" size={26} color={C.accentText} />
           <Text style={[s.rowT, { marginTop: 10, textAlign: 'center' }]}>Non sei ancora stato da {first}</Text>
           <Text style={[s.rowSub, { textAlign: 'center' }]}>
             Dopo il primo appuntamento troverai qui le vostre visite e i punti fedeltà guadagnati con lui.
@@ -1060,7 +1169,7 @@ function BarberHistory({ uid, staffId, name, photo }: { uid: string; staffId: st
               {shown.map((r) => row(r, false))}
               {past.length > 4 && (
                 <Pressable onPress={() => setAll((v) => !v)} hitSlop={8} style={{ alignSelf: 'center', paddingVertical: 8 }}>
-                  <Text style={{ color: C.accent, fontWeight: '700' }}>{all ? 'Mostra meno' : `Mostra tutte (${past.length})`}</Text>
+                  <Text style={{ color: C.accentText, fontWeight: '700' }}>{all ? 'Mostra meno' : `Mostra tutte (${past.length})`}</Text>
                 </Pressable>
               )}
             </>
@@ -1266,7 +1375,7 @@ function Book({ onBooked, staff, uid }: { onBooked: () => void; staff?: StaffSco
           <Step n={1} t="Sede" done={!!salon} />
           {salons.map((x) => (
             <Pressable key={x.id} onPress={() => { setSalon(x); goTo(service ? 'barber' : 'service'); }} style={[s.row, salon?.id === x.id && s.rowOn]}>
-              <Ionicons name="location-outline" size={22} color={C.accent} />
+              <Ionicons name="location-outline" size={22} color={C.accentText} />
               <View style={{ flex: 1, marginLeft: 12 }}>
                 <Text style={s.rowT}>{x.name}{x.id === prefId ? '  ★' : ''}</Text>
                 {x.address ? <Text style={s.rowSub}>{x.address}</Text> : null}
@@ -1331,7 +1440,7 @@ function Book({ onBooked, staff, uid }: { onBooked: () => void; staff?: StaffSco
       {/* Pagina del calendario, a tutto schermo */}
       <Modal visible={stage === 'calendar'} animationType="slide" presentationStyle="fullScreen" onRequestClose={() => setStage('pick')}>
         <KeyboardAvoidingView style={s.calRoot} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <LinearGradient colors={['#2B2111', '#0B0A07', C.bg]} locations={[0, 0.45, 1]} style={StyleSheet.absoluteFill} />
+          <LinearGradient colors={[C.heroA, C.heroB, C.bg]} locations={[0, 0.45, 1]} style={StyleSheet.absoluteFill} />
           <View style={[s.calTop, { paddingTop: insets.top + 8 }]}>
             <Pressable onPress={() => setStage('pick')} hitSlop={10}>
               <Glass radius={20} style={s.logoutBtn}>
@@ -1385,7 +1494,7 @@ function Book({ onBooked, staff, uid }: { onBooked: () => void; staff?: StaffSco
               <View style={s.calLegend}>
                 <View style={s.calDot2} />
                 <Text style={s.rowSub}>Giorni con posti liberi</Text>
-                {availLoading ? <ActivityIndicator size="small" color={C.accent} style={{ marginLeft: 'auto' }} /> : null}
+                {availLoading ? <ActivityIndicator size="small" color={C.accentText} style={{ marginLeft: 'auto' }} /> : null}
               </View>
             </View>
 
@@ -1397,7 +1506,7 @@ function Book({ onBooked, staff, uid }: { onBooked: () => void; staff?: StaffSco
                 <Text style={s.muted}>Nessun giorno libero nei prossimi {HORIZON_DAYS} giorni per questa scelta. Prova un altro barbiere o un altro servizio.</Text>
               )
             ) : loading ? (
-              <ActivityIndicator color={C.accent} style={{ marginTop: 10 }} />
+              <ActivityIndicator color={C.accentText} style={{ marginTop: 10 }} />
             ) : slots.length === 0 ? (
               <Text style={s.muted}>Nessun orario libero in questo giorno. Scegli un altro giorno.</Text>
             ) : (
@@ -1512,7 +1621,7 @@ function Orders({ uid }: { uid: string }) {
             {new Date(o.created_at).toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' })}, {eur(o.total_cents)}
           </Text>
           <Text style={s.rowSub}>{o.order_items.map((i: any) => `${i.qty} × ${i.name}`).join(', ')}</Text>
-          <Text style={[s.rowSub, { color: C.accent }]}>
+          <Text style={[s.rowSub, { color: C.accentText }]}>
             {o.fulfillment === 'shipping' ? 'Spedizione a domicilio' : `Ritiro: ${o.salons?.name ?? ''}`}, {o.fulfillment_status === 'done' ? (o.fulfillment === 'shipping' ? 'spedito' : 'consegnato') : 'in preparazione'}
           </Text>
         </View>
@@ -1573,7 +1682,7 @@ function OrdersAdmin() {
               {new Date(o.created_at).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })}, {eur(o.total_cents)}
             </Text>
             <Text style={s.rowSub}>{o.order_items.map((i: any) => `${i.qty} × ${i.name}`).join(', ')}</Text>
-            <Text style={[s.rowSub, { color: C.accent, marginTop: 6 }]}>{ship ? 'Spedizione a casa' : `Ritiro: ${o.salons?.name ?? ''}`}</Text>
+            <Text style={[s.rowSub, { color: C.accentText, marginTop: 6 }]}>{ship ? 'Spedizione a casa' : `Ritiro: ${o.salons?.name ?? ''}`}</Text>
             <Text style={s.rowSub}>{(ship ? o.shipping_name : o.customer_name) ?? 'Cliente'}{o.customer_phone ? `, ${o.customer_phone}` : ''}</Text>
             {ship && a && (
               <Text style={s.rowSub}>{[a.line1, a.line2, `${a.postal_code ?? ''} ${a.city ?? ''}`.trim(), a.state].filter(Boolean).join(', ')}</Text>
@@ -1764,7 +1873,7 @@ function Avatar({ name, url, size = 44 }: { name: string; url?: string | null; s
   const ini = name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
   return (
     <View style={[base, { backgroundColor: C.accentSoft, alignItems: 'center', justifyContent: 'center' }]}>
-      <Text style={{ color: C.accent, fontWeight: '800', fontSize: size * 0.38 }}>{ini}</Text>
+      <Text style={{ color: C.accentText, fontWeight: '800', fontSize: size * 0.38 }}>{ini}</Text>
     </View>
   );
 }
@@ -1821,7 +1930,7 @@ function ApptCard({ r, tz, hasReward, reload, extra }: { r: any; tz: string; has
           {extra ? <Text style={s.rowSub}>{extra}</Text> : null}
         </View>
       </View>
-      {r.reward_id ? <Text style={[s.rowSub, { color: C.accent, marginTop: 10 }]}>Taglio gratis con il premio fedeltà</Text> : null}
+      {r.reward_id ? <Text style={[s.rowSub, { color: C.accentText, marginTop: 10 }]}>Taglio gratis con il premio fedeltà</Text> : null}
       {r.status === 'confirmed' ? (
         <View style={[s.wrap, { marginTop: 12 }]}>
           <Pressable onPress={() => mark('completed')}><Text style={s.link}>Completato</Text></Pressable>
@@ -1957,17 +2066,17 @@ function Barbers({ canEdit, uid }: { canEdit: boolean; uid?: string }) {
             {st.photo_url ? (
               <Image source={{ uri: st.photo_url }} style={s.barberPhoto} />
             ) : (
-              <LinearGradient colors={['#2A2415', '#12100B']} style={[s.barberPhoto, { alignItems: 'center', justifyContent: 'center' }]}>
-                <Text style={{ color: C.accent, fontSize: 44, fontWeight: '800' }}>
+              <LinearGradient colors={[C.barberA, C.barberB]} style={[s.barberPhoto, { alignItems: 'center', justifyContent: 'center' }]}>
+                <Text style={{ color: C.accentText, fontSize: 44, fontWeight: '800' }}>
                   {st.name.split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase()}
                 </Text>
               </LinearGradient>
             )}
-            {busyId === st.id && <ActivityIndicator style={StyleSheet.absoluteFill} color={C.accent} />}
+            {busyId === st.id && <ActivityIndicator style={StyleSheet.absoluteFill} color={C.accentText} />}
             {canEdit && <View style={s.camera}><Ionicons name="camera" size={16} color="#000" /></View>}
             {uid ? (
               <Pressable style={s.favBtn} onPress={() => toggleFav(st)} hitSlop={8}>
-                <Ionicons name={favId === st.id ? 'star' : 'star-outline'} size={18} color={C.accent} />
+                <Ionicons name={favId === st.id ? 'star' : 'star-outline'} size={18} color="#ECC052" />
               </Pressable>
             ) : null}
             <Text style={[s.rowT, { marginTop: 10 }]} numberOfLines={1}>{st.name}</Text>
@@ -2001,7 +2110,7 @@ function Loyalty({ uid, onBalance, between }: { uid: string; onBalance?: (n: num
   }, [uid]);
   useEffect(() => { load(); }, [load]);
 
-  if (!cfg) return <View><ActivityIndicator style={{ marginVertical: 30 }} color={C.accent} />{between}</View>;
+  if (!cfg) return <View><ActivityIndicator style={{ marginVertical: 30 }} color={C.accentText} />{between}</View>;
 
   const need = cfg.reward_credits;
   const balance = rows.reduce((n, r) => n + r.credits, 0);
@@ -2030,10 +2139,10 @@ function Loyalty({ uid, onBalance, between }: { uid: string; onBalance?: (n: num
 
   return (
     <View>
-      <LinearGradient colors={['#2E2410', '#0F0E0A']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.loyHero}>
+      <LinearGradient colors={[C.loyA, C.loyB]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.loyHero}>
         <View style={s.heroTop}>
           <Text style={s.heroLabel}>CARTA FEDELTÀ</Text>
-          <Ionicons name="ribbon" size={22} color={C.accent} />
+          <Ionicons name="ribbon" size={22} color={C.accentText} />
         </View>
         <Text style={s.heroNum}>{balance}<Text style={s.heroOf}> / {need}</Text></Text>
         <Text style={s.rowSub}>punti accumulati</Text>
@@ -2054,7 +2163,7 @@ function Loyalty({ uid, onBalance, between }: { uid: string; onBalance?: (n: num
           </Pressable>
         )}
         {open > 0 && (
-          <Text style={[s.rowT, { color: C.accent, marginTop: 14 }]}>
+          <Text style={[s.rowT, { color: C.accentText, marginTop: 14 }]}>
             Hai {open === 1 ? 'un premio attivo' : `${open} premi attivi`}: mostralo al barbiere al prossimo appuntamento.
           </Text>
         )}
@@ -2233,6 +2342,8 @@ function Profile({ session }: { session: Session }) {
           Quando prenoti, la sede preferita è già selezionata e il barbiere preferito è il primo della lista. Tocca di nuovo per toglierlo.
         </Text>
       </View>
+
+      {Platform.OS === 'web' && <ThemePicker />}
     </>
   );
 
@@ -2309,7 +2420,7 @@ function MapCard({ address, lat, lng, onLocated }: { address: string; lat?: numb
 
   return (
     <Pressable onPress={() => openUrl(mapsSearch(address))} style={s.mapBox} onLayout={(e) => setW(Math.round(e.nativeEvent.layout.width))}>
-      <LinearGradient colors={['#14120D', '#0A0907']} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={[C.mapA, C.mapB]} style={StyleSheet.absoluteFill} />
       {tiles.length > 0 && bad <= tiles.length / 2 ? (
         <>
           <View pointerEvents="none" style={StyleSheet.absoluteFill}>
@@ -2325,20 +2436,20 @@ function MapCard({ address, lat, lng, onLocated }: { address: string; lat?: numb
           <View pointerEvents="none" style={s.pinWrap}>
             <View style={s.pinRing} />
             <View style={{ position: 'absolute', transform: [{ translateY: -22 }] }}>
-              <Ionicons name="location" size={46} color={C.accent} />
+              <Ionicons name="location" size={46} color={C.accentText} />
             </View>
           </View>
           <Text style={s.mapAttr}>© OpenStreetMap contributors</Text>
         </>
       ) : (
         <View style={s.mapFallback}>
-          <Ionicons name="location" size={42} color={C.accent} />
+          <Ionicons name="location" size={42} color={C.accentText} />
           <Text style={[s.rowSub, { textAlign: 'center', marginTop: 6 }]}>{address}</Text>
         </View>
       )}
       <View style={s.mapTag} pointerEvents="none">
         <Glass radius={16} style={{ paddingHorizontal: 12, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <Ionicons name="navigate" size={14} color={C.accent} />
+          <Ionicons name="navigate" size={14} color={C.accentText} />
           <Text style={s.mapTagT}>Apri in Google Maps</Text>
         </Glass>
       </View>
@@ -2440,7 +2551,7 @@ function Contacts({ uid, canPrefer, canEdit }: { uid?: string; canPrefer: boolea
         <Text style={s.muted}>Nessuna sede disponibile al momento.</Text>
       </ScrollView>
     ) : (
-      <ActivityIndicator style={{ marginTop: 80 }} color={C.accent} />
+      <ActivityIndicator style={{ marginTop: 80 }} color={C.accentText} />
     );
   }
 
@@ -2456,29 +2567,29 @@ function Contacts({ uid, canPrefer, canEdit }: { uid?: string; canPrefer: boolea
       <View style={[s.card, { marginTop: 16 }]}>
         <Text style={s.h2}>{sel.name}</Text>
         <View style={s.infoRow}>
-          <Ionicons name="location-outline" size={18} color={C.accent} />
+          <Ionicons name="location-outline" size={18} color={C.accentText} />
           <Text style={s.infoT}>{sel.address ?? 'Indirizzo non disponibile'}</Text>
         </View>
         <View style={s.infoRow}>
-          <Ionicons name="call-outline" size={18} color={C.accent} />
+          <Ionicons name="call-outline" size={18} color={C.accentText} />
           <Text style={s.infoT}>{sel.phone || 'Telefono non ancora disponibile'}</Text>
         </View>
         <View style={s.infoRow}>
-          <Ionicons name="logo-whatsapp" size={18} color={C.accent} />
+          <Ionicons name="logo-whatsapp" size={18} color={C.accentText} />
           <Text style={s.infoT}>{sel.whatsapp || 'WhatsApp non ancora disponibile'}</Text>
         </View>
         {sel.email ? (
           <Pressable style={s.infoRow} onPress={() => openUrl(`mailto:${sel.email}`)}>
-            <Ionicons name="mail-outline" size={18} color={C.accent} />
+            <Ionicons name="mail-outline" size={18} color={C.accentText} />
             <Text style={s.infoT}>{sel.email}</Text>
           </Pressable>
         ) : null}
         {canPrefer && (
           sel.id === prefId ? (
-            <Text style={[s.rowSub, { color: C.accent, marginTop: 12 }]}>★ È la tua sede preferita: la trovi già selezionata quando prenoti.</Text>
+            <Text style={[s.rowSub, { color: C.accentText, marginTop: 12 }]}>★ È la tua sede preferita: la trovi già selezionata quando prenoti.</Text>
           ) : (
             <Pressable onPress={setPreferred} style={s.prefBtn}>
-              <Ionicons name="star-outline" size={16} color={C.accent} />
+              <Ionicons name="star-outline" size={16} color={C.accentText} />
               <Text style={s.prefBtnT}>Imposta come sede preferita</Text>
             </Pressable>
           )
@@ -2488,7 +2599,7 @@ function Contacts({ uid, canPrefer, canEdit }: { uid?: string; canPrefer: boolea
       <View style={s.actRow}>
         <Pressable style={{ flex: 1 }} onPress={() => (sel.phone ? openUrl(telUrl(sel.phone)) : need('di telefono'))}>
           <Glass radius={20} style={s.actBtn}>
-            <Ionicons name="call" size={24} color={C.accent} />
+            <Ionicons name="call" size={24} color={C.accentText} />
             <Text style={s.actT}>Chiama</Text>
           </Glass>
         </Pressable>
@@ -2500,7 +2611,7 @@ function Contacts({ uid, canPrefer, canEdit }: { uid?: string; canPrefer: boolea
         </Pressable>
         <Pressable style={{ flex: 1 }} onPress={() => (sel.address ? openUrl(mapsRoute(sel.address)) : need('di indirizzo'))}>
           <Glass radius={20} style={s.actBtn}>
-            <Ionicons name="navigate" size={24} color={C.accent} />
+            <Ionicons name="navigate" size={24} color={C.accentText} />
             <Text style={s.actT}>Navigazione</Text>
           </Glass>
         </Pressable>
@@ -2509,14 +2620,14 @@ function Contacts({ uid, canPrefer, canEdit }: { uid?: string; canPrefer: boolea
       <Title t="Orari di apertura" />
       <View style={s.card}>
         {hours === null ? (
-          <ActivityIndicator color={C.accent} />
+          <ActivityIndicator color={C.accentText} />
         ) : hours.length === 0 ? (
           <Text style={s.muted}>Orari non disponibili al momento.</Text>
         ) : (
           <>
             {openNow && (
               <View style={s.openRow}>
-                <View style={[s.openDot, { backgroundColor: openNow.open ? '#3DDC84' : C.danger }]} />
+                <View style={[s.openDot, { backgroundColor: openNow.open ? C.ok : C.danger }]} />
                 <Text style={s.rowT}>{openNow.open ? 'Aperto ora' : 'Chiuso ora'}</Text>
               </View>
             )}
@@ -2525,8 +2636,8 @@ function Contacts({ uid, canPrefer, canEdit }: { uid?: string; canPrefer: boolea
               const today = openNow?.wd === i + 1;
               return (
                 <View key={name} style={[s.hoursRow, i === 6 && { borderBottomWidth: 0 }]}>
-                  <Text style={[s.hoursDay, today && { color: C.accent }]}>{name}</Text>
-                  <Text style={[s.hoursT, today && { color: C.accent }, w.length === 0 && { color: C.muted }]}>
+                  <Text style={[s.hoursDay, today && { color: C.accentText }]}>{name}</Text>
+                  <Text style={[s.hoursT, today && { color: C.accentText }, w.length === 0 && { color: C.muted }]}>
                     {w.length === 0 ? 'Chiuso' : w.map((h) => `${h.start_time.slice(0, 5)} – ${h.end_time.slice(0, 5)}`).join('   ')}
                   </Text>
                 </View>
@@ -2607,7 +2718,7 @@ function ControlRoom() {
       <ScrollView contentContainerStyle={s.pad}>
         <Text style={s.h1}>Control room</Text>
         {periods}
-        <ActivityIndicator style={{ marginTop: 60 }} color={C.accent} />
+        <ActivityIndicator style={{ marginTop: 60 }} color={C.accentText} />
       </ScrollView>
     );
   }
@@ -2625,7 +2736,7 @@ function ControlRoom() {
       <Text style={s.h1}>Control room</Text>
       {periods}
 
-      <LinearGradient colors={['#2E2410', '#0F0E0A']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[s.loyHero, { marginTop: 18 }]}>
+      <LinearGradient colors={[C.loyA, C.loyB]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[s.loyHero, { marginTop: 18 }]}>
         <Text style={s.heroLabel}>INCASSO TOTALE, ULTIMI {days} GIORNI</Text>
         <Text style={[s.heroNum, { marginTop: 8 }]}>{eur(total)}</Text>
         <Text style={s.rowSub}>
@@ -2640,7 +2751,7 @@ function ControlRoom() {
       <Title t="Incasso per sede" />
       <View style={[s.wrap, { marginBottom: 12 }]}>
         <Text style={s.rowSub}>● Servizi</Text>
-        <Text style={[s.rowSub, { color: '#8C877A' }]}>● Shop</Text>
+        <Text style={[s.rowSub, { color: C.series2 }]}>● Shop</Text>
       </View>
       {d.salons.map((x: any) => (
         <View key={x.id} style={{ marginBottom: 16 }}>
@@ -2650,7 +2761,7 @@ function ControlRoom() {
           </View>
           <View style={[s.track, { marginTop: 6 }]}>
             <View style={[s.fill, { width: `${(x.services / maxSalon) * 100}%` }]} />
-            <View style={[s.fill, { width: `${(x.shop / maxSalon) * 100}%`, backgroundColor: '#8C877A' }]} />
+            <View style={[s.fill, { width: `${(x.shop / maxSalon) * 100}%`, backgroundColor: C.series2 }]} />
           </View>
         </View>
       ))}
@@ -2696,7 +2807,7 @@ function More({ owner, go }: { owner: boolean; go: (t: Tab) => void }) {
       <View style={{ marginTop: 14 }}>
         {items.map(([id, title, icon, sub]) => (
           <Pressable key={id} style={s.row} onPress={() => go(id)}>
-            <View style={s.menuIcon}><Ionicons name={icon as any} size={22} color={C.accent} /></View>
+            <View style={s.menuIcon}><Ionicons name={icon as any} size={22} color={C.accentText} /></View>
             <View style={{ flex: 1, marginLeft: 14 }}>
               <Text style={s.rowT}>{title}</Text>
               <Text style={s.rowSub}>{sub}</Text>
@@ -2705,6 +2816,7 @@ function More({ owner, go }: { owner: boolean; go: (t: Tab) => void }) {
           </Pressable>
         ))}
       </View>
+      {Platform.OS === 'web' && <ThemePicker />}
     </ScrollView>
   );
 }
@@ -2721,6 +2833,23 @@ export default function App() {
   const [key, setKey] = useState(0);
   const [cart, setCart] = useState<Cart>({});
   const uid = session?.user.id;
+
+  // Tema: sul telefono segue il sistema; sul web conta anche la scelta fatta nell'app. Va deciso prima di disegnare le schermate.
+  const system = useColorScheme();
+  const [themePref] = useThemePref();
+  const mode: Mode = (themePref === 'auto' ? system : themePref) === 'light' ? 'light' : 'dark';
+  applyMode(mode);
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      const d: any = (globalThis as any).document;
+      if (d?.documentElement && d.body) {
+        d.documentElement.style.colorScheme = mode;
+        d.documentElement.style.backgroundColor = C.bg;
+        d.body.style.backgroundColor = C.bg;
+      }
+    }
+    try { require('expo-system-ui').setBackgroundColorAsync(C.bg)?.catch?.(() => {}); } catch { /* modulo facoltativo */ }
+  }, [mode]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => { setSession(data.session); setReady(true); });
@@ -2788,7 +2917,7 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <StatusBar style="light" />
+      <StatusBar style={mode === 'dark' ? 'light' : 'dark'} />
       {!session || hold ? (
         <View style={s.root}>
           <Auth onHold={setHold} />
@@ -2798,7 +2927,7 @@ export default function App() {
           <Header onLogout={() => supabase.auth.signOut()} onMenu={staff || !roleReady ? undefined : () => setMenu(true)} />
           {sub && (
             <Pressable style={s.back} onPress={() => setTab('more')}>
-              <Ionicons name="chevron-back" size={20} color={C.accent} />
+              <Ionicons name="chevron-back" size={20} color={C.accentText} />
               <Text style={s.backT}>Altro</Text>
             </Pressable>
           )}
@@ -2818,15 +2947,15 @@ export default function App() {
             {tab === 'more' && staff && <More owner={owner} go={setTab} />}
           </Appear>
           <View style={s.tabWrap}>
-            <LinearGradient colors={[C.bg, '#1E170B']} style={StyleSheet.absoluteFill} />
+            <LinearGradient colors={[C.bg, C.tabEnd]} style={StyleSheet.absoluteFill} />
             <Glass radius={30} style={s.tabbar}>
               {tabs.map(([id, label, icon]) => {
                 const on = active === id;
                 return (
                   <Pressable key={id} style={s.tabItem} onPress={() => setTab(id)}>
                     <View style={[s.tabPill, on && s.tabPillOn]}>
-                      <Ionicons name={icon as any} size={22} color={on ? C.accent : C.muted} />
-                      <Text numberOfLines={1} style={[s.tabLabel, on && { color: C.accent }]}>{label}</Text>
+                      <Ionicons name={icon as any} size={22} color={on ? C.accentText : C.muted} />
+                      <Text numberOfLines={1} style={[s.tabLabel, on && { color: C.accentText }]}>{label}</Text>
                     </View>
                   </Pressable>
                 );
@@ -2840,14 +2969,14 @@ export default function App() {
               <Text style={s.h2}>Account</Text>
               <Text style={[s.rowSub, { marginBottom: 14 }]}>{session.user.email}</Text>
               <Pressable style={s.row} onPress={() => { setMenu(false); supabase.auth.signOut(); }}>
-                <View style={s.menuIcon}><Ionicons name="log-out-outline" size={22} color={C.accent} /></View>
+                <View style={s.menuIcon}><Ionicons name="log-out-outline" size={22} color={C.accentText} /></View>
                 <View style={{ flex: 1, marginLeft: 14 }}>
                   <Text style={s.rowT}>Esci</Text>
                   <Text style={s.rowSub}>Disconnetti questo dispositivo</Text>
                 </View>
               </Pressable>
               <Pressable style={s.row} onPress={() => { setMenu(false); setTimeout(askDeleteAccount, 450); }}>
-                <View style={[s.menuIcon, { backgroundColor: 'rgba(255,107,94,0.14)' }]}><Ionicons name="trash-outline" size={22} color={C.danger} /></View>
+                <View style={[s.menuIcon, { backgroundColor: C.dangerSoft }]}><Ionicons name="trash-outline" size={22} color={C.danger} /></View>
                 <View style={{ flex: 1, marginLeft: 14 }}>
                   <Text style={[s.rowT, { color: C.danger }]}>Elimina account</Text>
                   <Text style={s.rowSub}>Cancella il tuo profilo e i dati personali</Text>
@@ -2861,7 +2990,8 @@ export default function App() {
   );
 }
 
-const s = StyleSheet.create({
+function makeStyles() {
+  return StyleSheet.create({
   root: { flex: 1, backgroundColor: C.bg },
   pad: { padding: 20, paddingBottom: 40 },
   h1: { fontSize: 30, fontWeight: '800', color: C.text, letterSpacing: -0.8, marginBottom: 6 },
@@ -2877,25 +3007,25 @@ const s = StyleSheet.create({
   brand: { color: C.text, fontSize: 18, fontWeight: '800', letterSpacing: 0.3 },
   brandBig: { color: C.text, fontSize: 26, fontWeight: '800', letterSpacing: 0.5, marginTop: 16 },
   back: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingTop: 10 },
-  backT: { color: C.accent, fontSize: 16, fontWeight: '700' },
+  backT: { color: C.accentText, fontSize: 16, fontWeight: '700' },
 
   stepRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 30, marginBottom: 12 },
   stepNum: { width: 26, height: 26, borderRadius: 13, borderWidth: 1.5, borderColor: C.line, alignItems: 'center', justifyContent: 'center' },
-  stepNumOn: { backgroundColor: C.accent, borderColor: C.accent },
+  stepNumOn: { backgroundColor: C.accent, borderColor: C.accentBorder },
   stepNumT: { color: C.muted, fontSize: 13, fontWeight: '800' },
 
   chip: { backgroundColor: C.card2, borderRadius: 14, borderWidth: 1, borderColor: C.line, paddingVertical: 11, paddingHorizontal: 16 },
-  chipOn: { backgroundColor: C.accent, borderColor: C.accent },
+  chipOn: { backgroundColor: C.accent, borderColor: C.accentBorder },
   chipT: { fontSize: 16, fontWeight: '600', color: C.text },
   chipSub: { fontSize: 13, color: C.muted, marginTop: 2 },
   onT: { color: '#000000' },
 
   cat: { color: C.muted, fontSize: 12, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8, marginTop: 4 },
   row: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.card, borderRadius: 18, borderWidth: 1, borderColor: C.line, padding: 15, marginBottom: 10 },
-  rowOn: { borderColor: C.accent, backgroundColor: C.accentSoft },
+  rowOn: { borderColor: C.accentBorder, backgroundColor: C.accentSoft },
   rowT: { color: C.text, fontSize: 16, fontWeight: '700' },
   rowSub: { color: C.muted, fontSize: 13, marginTop: 2, lineHeight: 18 },
-  price: { color: C.accent, fontSize: 16, fontWeight: '800' },
+  price: { color: C.accentText, fontSize: 16, fontWeight: '800' },
 
   dayTile: { width: 64, alignItems: 'center', paddingVertical: 11, borderRadius: 16, borderWidth: 1, borderColor: C.line, backgroundColor: C.card2 },
   dayW: { color: C.muted, fontSize: 12, fontWeight: '600' },
@@ -2912,15 +3042,15 @@ const s = StyleSheet.create({
   tabbar: { flexDirection: 'row', padding: 5 },
   tabItem: { flex: 1 },
   tabPill: { alignItems: 'center', gap: 3, paddingVertical: 8, borderRadius: 22, borderWidth: 1, borderColor: 'transparent' },
-  tabPillOn: { backgroundColor: C.accentSoft, borderColor: 'rgba(236,192,82,0.35)' },
+  tabPillOn: { backgroundColor: C.accentSoft, borderColor: C.accentLine },
   tabLabel: { color: C.muted, fontSize: 10, fontWeight: '700' },
 
   card: { backgroundColor: C.card, borderRadius: 20, borderWidth: 1, borderColor: C.line, padding: 16, marginBottom: 12 },
-  link: { fontSize: 15, fontWeight: '700', color: C.accent, paddingVertical: 4, paddingRight: 14 },
+  link: { fontSize: 15, fontWeight: '700', color: C.accentText, paddingVertical: 4, paddingRight: 14 },
   badge: { width: 54, height: 60, borderRadius: 14, backgroundColor: C.accentSoft, alignItems: 'center', justifyContent: 'center' },
-  badgeN: { color: C.accent, fontSize: 22, fontWeight: '800' },
-  badgeM: { color: C.accent, fontSize: 12, fontWeight: '700' },
-  timeBig: { color: C.accent, fontSize: 22, fontWeight: '800', fontVariant: ['tabular-nums'], minWidth: 62 },
+  badgeN: { color: C.accentText, fontSize: 22, fontWeight: '800' },
+  badgeM: { color: C.accentText, fontSize: 12, fontWeight: '700' },
+  timeBig: { color: C.accentText, fontSize: 22, fontWeight: '800', fontVariant: ['tabular-nums'], minWidth: 62 },
 
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 14, marginTop: 18 },
   product: { width: '48%', backgroundColor: C.card, borderRadius: 22, borderWidth: 1, borderColor: C.line, padding: 12 },
@@ -2933,7 +3063,7 @@ const s = StyleSheet.create({
   plus: { width: 34, height: 34, borderRadius: 17, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center' },
   cartBar: { position: 'absolute', left: 16, right: 16, bottom: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: C.accent, borderRadius: 18, paddingVertical: 16, paddingHorizontal: 20 },
   cartT: { color: '#000000', fontSize: 16, fontWeight: '800' },
-  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.65)' },
+  backdrop: { flex: 1, backgroundColor: C.scrim },
   sheet: { backgroundColor: C.card, borderTopLeftRadius: 28, borderTopRightRadius: 28, borderWidth: 1, borderColor: C.line, padding: 22, paddingBottom: 34 },
   qtyBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: C.card2, borderWidth: 1, borderColor: C.line, alignItems: 'center', justifyContent: 'center', marginLeft: 8 },
   qtyT: { color: C.text, fontSize: 16, fontWeight: '800', minWidth: 22, textAlign: 'center', marginLeft: 8 },
@@ -2943,14 +3073,14 @@ const s = StyleSheet.create({
   camera: { position: 'absolute', top: 10, right: 10, width: 30, height: 30, borderRadius: 15, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center' },
   menuIcon: { width: 42, height: 42, borderRadius: 14, backgroundColor: C.accentSoft, alignItems: 'center', justifyContent: 'center' },
 
-  loyHero: { borderRadius: 26, borderWidth: 1, borderColor: C.accent, padding: 20, overflow: 'hidden' },
+  loyHero: { borderRadius: 26, borderWidth: 1, borderColor: C.accentBorder, padding: 20, overflow: 'hidden' },
   heroTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  heroLabel: { color: C.accent, fontSize: 12, fontWeight: '800', letterSpacing: 1.6 },
+  heroLabel: { color: C.accentText, fontSize: 12, fontWeight: '800', letterSpacing: 1.6 },
   heroNum: { color: C.text, fontSize: 52, fontWeight: '800', letterSpacing: -1.5, marginTop: 10 },
   heroOf: { color: C.muted, fontSize: 24, fontWeight: '600', letterSpacing: 0 },
   stamps: { flexDirection: 'row', gap: 6, marginTop: 18, marginBottom: 14 },
   stamp: { flex: 1, aspectRatio: 1, borderRadius: 99, borderWidth: 1.5, borderColor: C.line, alignItems: 'center', justifyContent: 'center' },
-  stampOn: { backgroundColor: C.accent, borderColor: C.accent },
+  stampOn: { backgroundColor: C.accent, borderColor: C.accentBorder },
   track: { height: 8, borderRadius: 4, backgroundColor: C.card2, flexDirection: 'row', overflow: 'hidden' },
   fill: { height: 8, backgroundColor: C.accent },
   barHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
@@ -2978,23 +3108,23 @@ const s = StyleSheet.create({
   doneRoot: { flex: 1, backgroundColor: C.bg },
   doneBody: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 28 },
   doneIcon: { width: 120, height: 120, alignItems: 'center', justifyContent: 'center', marginBottom: 26 },
-  doneKicker: { color: C.accent, fontSize: 12, fontWeight: '800', letterSpacing: 2 },
+  doneKicker: { color: C.accentText, fontSize: 12, fontWeight: '800', letterSpacing: 2 },
   doneTitle: { color: C.text, fontSize: 36, textAlign: 'center', marginTop: 10, marginBottom: 14 },
   doneSub: { color: C.muted, fontSize: 16, lineHeight: 24, textAlign: 'center' },
-  doneMail: { color: C.accent, fontSize: 17, fontWeight: '800', textAlign: 'center', marginVertical: 6 },
+  doneMail: { color: C.accentText, fontSize: 17, fontWeight: '800', textAlign: 'center', marginVertical: 6 },
   doneBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 16 },
   doneBtnT: { color: C.text, fontSize: 16, fontWeight: '800' },
 
   // Prenotazione: barbieri e barra in basso
   pickRow: { paddingHorizontal: 20, gap: 12, paddingBottom: 4 },
   bCard: { width: 116, alignItems: 'center', padding: 10, borderRadius: 22, borderWidth: 1, borderColor: C.line, backgroundColor: C.card },
-  bCardOn: { borderColor: C.accent, backgroundColor: C.accentSoft },
+  bCardOn: { borderColor: C.accentBorder, backgroundColor: C.accentSoft },
   bPhoto: { width: 92, height: 92, borderRadius: 46, backgroundColor: C.card2 },
-  bIni: { color: C.accent, fontSize: 30, fontWeight: '800' },
+  bIni: { color: C.accentText, fontSize: 30, fontWeight: '800' },
   bCheck: { position: 'absolute', right: -2, bottom: -2, width: 24, height: 24, borderRadius: 12, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: C.bg },
   bName: { color: C.text, fontSize: 14, fontWeight: '700', textAlign: 'center', marginTop: 10, minHeight: 36 },
   hisHead: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 },
-  hisKicker: { color: C.accent, fontSize: 11, fontWeight: '800', letterSpacing: 1.6, marginBottom: 2 },
+  hisKicker: { color: C.accentText, fontSize: 11, fontWeight: '800', letterSpacing: 1.6, marginBottom: 2 },
   hisStats: { flexDirection: 'row', gap: 10 },
   hisTile: { flex: 1, backgroundColor: C.card, borderRadius: 18, borderWidth: 1, borderColor: C.line, paddingVertical: 14, paddingHorizontal: 10, alignItems: 'center' },
   hisNum: { color: C.text, fontSize: 22, fontWeight: '800', letterSpacing: -0.4 },
@@ -3002,12 +3132,12 @@ const s = StyleSheet.create({
   hisSection: { color: C.muted, fontSize: 12, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase', marginTop: 18, marginBottom: 8 },
   hisRow: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: C.card, borderRadius: 18, borderWidth: 1, borderColor: C.line, padding: 12, marginBottom: 8 },
   hisDate: { width: 48, height: 52, borderRadius: 13, backgroundColor: C.accentSoft, alignItems: 'center', justifyContent: 'center' },
-  hisDay: { color: C.accent, fontSize: 19, fontWeight: '800', lineHeight: 22 },
-  hisMon: { color: C.accent, fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
+  hisDay: { color: C.accentText, fontSize: 19, fontWeight: '800', lineHeight: 22 },
+  hisMon: { color: C.accentText, fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
   hisState: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   hisTag: { fontSize: 12, fontWeight: '700' },
   hisEmpty: { alignItems: 'center', backgroundColor: C.card, borderRadius: 20, borderWidth: 1, borderColor: C.line, paddingVertical: 24, paddingHorizontal: 22 },
-  bookBar: { position: 'absolute', left: 14, right: 14, bottom: 12, flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: C.card, borderRadius: 22, borderWidth: 1, borderColor: C.accent, padding: 12, paddingLeft: 16, shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 16, shadowOffset: { width: 0, height: 6 } },
+  bookBar: { position: 'absolute', left: 14, right: 14, bottom: 12, flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: C.card, borderRadius: 22, borderWidth: 1, borderColor: C.accentBorder, padding: 12, paddingLeft: 16, shadowColor: C.shadow, shadowOpacity: C.shadowO, shadowRadius: 16, shadowOffset: { width: 0, height: 6 } },
   bookGo: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.accent, borderRadius: 16, paddingVertical: 14, paddingHorizontal: 20 },
 
   // Pagina del calendario
@@ -3015,25 +3145,25 @@ const s = StyleSheet.create({
   calTop: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, paddingBottom: 10 },
   calTitle: { color: C.text, fontSize: 26 },
   calBody: { padding: 16, paddingBottom: 30 },
-  calCard: { backgroundColor: 'rgba(17,16,14,0.92)', borderRadius: 28, borderWidth: 1, borderColor: 'rgba(236,192,82,0.35)', padding: 14, shadowColor: C.accent, shadowOpacity: 0.18, shadowRadius: 24, shadowOffset: { width: 0, height: 8 } },
+  calCard: { backgroundColor: C.calCard, borderRadius: 28, borderWidth: 1, borderColor: C.accentLine, padding: 14, shadowColor: C.accent, shadowOpacity: 0.18, shadowRadius: 24, shadowOffset: { width: 0, height: 8 } },
   calHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
   calArrow: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center' },
   calMonth: { color: C.text, fontSize: 28, lineHeight: 34 },
-  calYear: { color: C.accent, fontSize: 12, fontWeight: '800', letterSpacing: 2 },
+  calYear: { color: C.accentText, fontSize: 12, fontWeight: '800', letterSpacing: 2 },
   calGrid: { flexDirection: 'row', flexWrap: 'wrap' },
   calCellHead: { width: '14.28%', alignItems: 'center', paddingVertical: 8 },
   calWeekT: { color: C.muted, fontSize: 12, fontWeight: '800' },
   calCell: { width: '14.28%', aspectRatio: 1, alignItems: 'center', justifyContent: 'center', padding: 3 },
   calDay: { width: '100%', height: '100%', borderRadius: 99, alignItems: 'center', justifyContent: 'center' },
-  calToday: { borderWidth: 1.5, borderColor: 'rgba(236,192,82,0.6)' },
+  calToday: { borderWidth: 1.5, borderColor: C.accentLine2 },
   calSel: { backgroundColor: C.accent, shadowColor: C.accent, shadowOpacity: 0.6, shadowRadius: 12, shadowOffset: { width: 0, height: 0 } },
   calNum: { color: C.text, fontSize: 16, fontWeight: '700' },
-  calOff: { color: 'rgba(163,157,142,0.35)', fontWeight: '500' },
+  calOff: { color: C.calOff, fontWeight: '500' },
   calDot: { position: 'absolute', bottom: 3, width: 4, height: 4, borderRadius: 2, backgroundColor: C.accent },
   calDot2: { width: 6, height: 6, borderRadius: 3, backgroundColor: C.accent, marginRight: 8 },
   calLegend: { flexDirection: 'row', alignItems: 'center', marginTop: 8, paddingHorizontal: 4 },
   calSlotsTitle: { color: C.text, fontSize: 20, fontWeight: '800', letterSpacing: -0.3, marginTop: 26, marginBottom: 12 },
-  calBar: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 18, paddingTop: 12, borderTopWidth: 1, borderTopColor: C.line, backgroundColor: 'rgba(11,10,7,0.96)' },
+  calBar: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 18, paddingTop: 12, borderTopWidth: 1, borderTopColor: C.line, backgroundColor: C.calBar },
 
   // Profilo
   profName: { color: C.text, fontSize: 21, fontWeight: '800', letterSpacing: -0.4 },
@@ -3041,8 +3171,8 @@ const s = StyleSheet.create({
   // Contatti
   infoRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12 },
   infoT: { flex: 1, color: C.text, fontSize: 15, lineHeight: 21 },
-  prefBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 16, paddingVertical: 12, borderRadius: 14, borderWidth: 1, borderColor: 'rgba(236,192,82,0.5)' },
-  prefBtnT: { color: C.accent, fontSize: 15, fontWeight: '700' },
+  prefBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 16, paddingVertical: 12, borderRadius: 14, borderWidth: 1, borderColor: C.accentLine2 },
+  prefBtnT: { color: C.accentText, fontSize: 15, fontWeight: '700' },
   actRow: { flexDirection: 'row', gap: 10 },
   actBtn: { alignItems: 'center', gap: 8, paddingVertical: 18 },
   actT: { color: C.text, fontSize: 13, fontWeight: '800' },
@@ -3055,15 +3185,15 @@ const s = StyleSheet.create({
   // Pagina iniziale (nuova)
   welBrand: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: 18 },
   welMask: { alignSelf: 'stretch', overflow: 'hidden', paddingHorizontal: 14, justifyContent: 'center', alignItems: 'center' },
-  welTitle: { color: '#F3E3B3', textAlign: 'center' },
-  welLine: { width: 56, height: 1, backgroundColor: 'rgba(236,192,82,0.7)', marginTop: 18 },
+  welTitle: { color: C.welTitle, textAlign: 'center' },
+  welLine: { width: 56, height: 1, backgroundColor: C.welLine, marginTop: 18 },
   welSub: { color: C.muted, fontSize: 11, fontWeight: '600', letterSpacing: 3.2, marginTop: 16, textAlign: 'center' },
   welActions: { width: '100%', maxWidth: 420, alignSelf: 'center', gap: 12 },
   welPrimaryWrap: { borderRadius: 28, shadowColor: C.accent, shadowOpacity: 0.28, shadowRadius: 18, shadowOffset: { width: 0, height: 8 } },
   welPrimary: { height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
   welPrimaryT: { color: '#000000', fontSize: 16, fontWeight: '800', letterSpacing: 0.4 },
-  welGhost: { height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(236,192,82,0.4)', backgroundColor: 'rgba(255,255,255,0.04)' },
-  welGhostT: { color: '#F3E3B3', fontSize: 16, fontWeight: '700', letterSpacing: 0.4 },
+  welGhost: { height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.accentLine, backgroundColor: C.welGhostBg },
+  welGhostT: { color: C.welTitle, fontSize: 16, fontWeight: '700', letterSpacing: 0.4 },
 
   // Preferiti, profilo, mappa
   bFav: { position: 'absolute', left: -2, top: -2, width: 22, height: 22, borderRadius: 11, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: C.bg },
@@ -3078,3 +3208,5 @@ const s = StyleSheet.create({
   pinWrap: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
   pinRing: { width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(236,192,82,0.28)', borderWidth: 1.5, borderColor: 'rgba(236,192,82,0.8)' },
 });
+}
+let s = makeStyles();
