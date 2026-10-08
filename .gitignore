@@ -5,3 +5,5 @@ web-build/
 .env
 .env.*
 *.log
+.build/
+build-out/

@@ -1,0 +1,76 @@
+# Costruisce l'APK di DF Barbershop per Android e lo pubblica nella release "beta".
+# Si avvia a mano: scheda Actions > "Android APK" > Run workflow.
+# Servono due segreti del repository (Settings > Secrets and variables > Actions):
+#   EXPO_PUBLIC_SUPABASE_URL e EXPO_PUBLIC_SUPABASE_ANON_KEY, gli stessi valori del file .env.
+name: Android APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-apk
+  cancel-in-progress: false
+
+jobs:
+  apk:
+    name: Costruisci l'APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Controlla i dati del database
+        run: |
+          if [ -z "$EXPO_PUBLIC_SUPABASE_URL" ] || [ -z "$EXPO_PUBLIC_SUPABASE_ANON_KEY" ]; then
+            echo "::warning title=Prova senza database::Mancano i segreti EXPO_PUBLIC_SUPABASE_URL e EXPO_PUBLIC_SUPABASE_ANON_KEY: costruisco solo una prova e non pubblico l'APK."
+            echo "EXPO_PUBLIC_SUPABASE_URL=https://prova.supabase.co" >> "$GITHUB_ENV"
+            echo "EXPO_PUBLIC_SUPABASE_ANON_KEY=prova" >> "$GITHUB_ENV"
+            echo "SOLO_PROVA=1" >> "$GITHUB_ENV"
+          fi
+
+      - name: Prepara il progetto Android
+        run: bash .github/android/ci-run.sh bash .github/android/prepare.sh "${{ github.run_number }}"
+
+      - name: Costruisci
+        working-directory: .build/android
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          bash ../../.github/android/ci-run.sh ./gradlew assembleRelease --no-daemon --console=plain -PreactNativeArchitectures=arm64-v8a
+
+      - name: Firma l'APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash .github/android/ci-run.sh bash .github/android/sign.sh
+
+      - name: Conserva il file
+        uses: actions/upload-artifact@v4
+        with:
+          name: DFBarbershop-apk
+          path: build-out/DFBarbershop.apk
+          retention-days: 30
+
+      - name: Pubblica la release "beta"
+        if: env.SOLO_PROVA != '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete beta --cleanup-tag --yes 2>/dev/null || true
+          gh release create beta build-out/DFBarbershop.apk \
+            --target "$GITHUB_SHA" --prerelease \
+            --title "DF Barbershop beta (build ${{ github.run_number }})" \
+            --notes "Scarica DFBarbershop.apk dal telefono Android e aprilo per installare l'app (serve Android 7 o successivo)."
