@@ -5,6 +5,11 @@
 - Il file `.env` non viene caricato nelle build EAS: crea le due variabili `EXPO_PUBLIC_SUPABASE_URL` e `EXPO_PUBLIC_SUPABASE_ANON_KEY` su EAS (dashboard expo.dev, sezione Environment variables, oppure `eas env:create`).
 - Comandi: `eas login`, `eas init`, `eas build --profile production --platform all`.
 
+## Immagini
+- Sostituisci `assets/hero.jpg` (pagina iniziale) con una foto vera del salone, in verticale e scura.
+- Se hai il logo ufficiale ad alta risoluzione, sostituisci `icon.png` (1024×1024, senza trasparenza), `adaptive-icon.png` (marchio al centro su fondo trasparente), `splash-icon.png`, `favicon.png`.
+- Screenshot degli store: rifalli quelli della versione 1, l'aspetto è cambiato.
+
 ## Account
 - Apple Developer Program (quota annuale; per l'account a nome azienda servono i dati dell'impresa).
 - Google Play Console (quota una tantum). Per i nuovi account personali Google può richiedere un periodo di test chiuso: verifica i requisiti correnti.

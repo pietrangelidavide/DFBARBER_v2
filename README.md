@@ -29,7 +29,18 @@ Le chiavi Stripe e la `service_role` non vanno mai in un file: stanno solo come 
 - Per far funzionare il tema chiaro anche su Android installa una volta `npx expo install expo-system-ui`; poi rifai la build dell'app (la modifica di `app.json` vale solo con una nuova build).
 - I colori dei due temi stanno in cima a `App.tsx` (`DARK` e `LIGHT`).
 
-La versione per vendere l'app ad altre barberie è nella repo `Barber`.
+## Aspetto (versione 2)
+
+Il disegno segue il sito dfbarbershop.com: nero caldo e avorio, un solo oro (`#C4A868`), filetti sottili, angoli netti con le "parentesi" agli spigoli, titoli condensati e frasi in corsivo. La pagina iniziale è sempre su foto scura, come sul sito.
+
+- **Caratteri:** i titoli usano Bebas Neue e le frasi in corsivo Cormorant Garamond. Installali una volta (la build Android lo fa da sola):
+  `npx expo install @expo-google-fonts/bebas-neue @expo-google-fonts/cormorant-garamond expo-font`
+  Se i pacchetti mancano l'app funziona lo stesso, con i caratteri di sistema.
+- **Foto della pagina iniziale:** `assets/hero.jpg` è un'immagine segnaposto. Sostituiscila con una foto vera del salone (verticale, almeno 1170×2532 px, scura: sopra c'è già una sfumatura nera per leggere il testo).
+- **Icona e schermata di avvio:** `assets/icon.png`, `adaptive-icon.png`, `splash-icon.png`, `favicon.png` portano il marchio "DF" fra le parentesi. Per usare il logo ufficiale (stemma) servono i file originali ad alta risoluzione: basta sostituire questi cinque file.
+- **Colori:** `DARK` e `LIGHT` in cima a `App.tsx`. Nel tema chiaro i testi piccoli in oro usano una tonalità più scura (`#7F6325`) per restare leggibili.
+
+La versione per vendere l'app ad altre barberie è nella repo `Barber` (non cambia con la versione 2).
 
 ## App Android (APK, gratis)
 

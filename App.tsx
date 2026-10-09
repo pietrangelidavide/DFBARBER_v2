@@ -6,7 +6,6 @@ import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import * as ImagePicker from 'expo-image-picker';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './lib/supabase';
@@ -31,46 +30,46 @@ const Alert: typeof RNAlert =
     : RNAlert;
 
 // ───────── Tema chiaro e scuro ─────────
-// Scuro: oro su nero caldo (dal logo DFBARBER). Chiaro: bianco caldo; testi e icone dorati usano un oro più scuro, leggibile sul bianco.
+// Identità ricavata dal sito dfbarbershop.com: nero caldo e avorio, un solo oro (#C4A868), filetti sottili,
+// angoli netti con le "parentesi" agli spigoli, titoli condensati e testi piccoli spaziati.
+// Scuro: come le pagine "Benvenuto" e "Le nostre sedi". Chiaro: come lo Shop. Il tema chiaro usa un oro più scuro per i testi piccoli (leggibilità).
 // Sul telefono l'app segue il tema del sistema; sul web si sceglie fra Automatico, Chiaro e Scuro (la scelta resta nel browser).
 const DARK = {
-  bg: '#070706', card: '#11100E', card2: '#1A1815', line: '#2A2722',
-  text: '#F8F4EA', muted: '#A39D8E',
-  accent: '#ECC052', accent2: '#B98A22', accentSoft: '#ECC05224',
-  accentText: '#ECC052',            // oro per testi e icone
-  accentBorder: '#ECC052',          // oro per i bordi di selezione
-  accentLine: 'rgba(236,192,82,0.35)', accentLine2: 'rgba(236,192,82,0.6)',
-  danger: '#FF6B5E', dangerSoft: 'rgba(255,107,94,0.14)', ok: '#3DDC84', series2: '#8C877A',
-  // sfumature di sfondo
-  heroA: '#2B2111', heroB: '#0B0A07', welA: '#17120A', tabEnd: '#1E170B',
-  tileA: '#2E2410', tileB: '#14110A', photoA: '#3A2D12', photoB: '#15110A', barberA: '#2A2415', barberB: '#12100B',
-  loyA: '#2E2410', loyB: '#0F0E0A', mapA: '#14120D', mapB: '#0A0907',
-  // ombre, vetro, calendario, pagina iniziale
-  scrim: 'rgba(0,0,0,0.65)', shadow: '#000000', shadowO: 0.5,
-  glassBorder: 'rgba(255,255,255,0.18)', glassA: 'rgba(255,255,255,0.18)', glassB: 'rgba(255,255,255,0.04)',
-  glassTint: 'rgba(236,192,82,0.10)', nativeTint: 'rgba(236,192,82,0.14)',
-  calCard: 'rgba(17,16,14,0.92)', calBar: 'rgba(11,10,7,0.96)', calOff: 'rgba(163,157,142,0.35)',
-  welTitle: '#F3E3B3', welLine: 'rgba(236,192,82,0.7)', welGhostBg: 'rgba(255,255,255,0.04)',
+  bg: '#0C0C0C', card: '#14110D', card2: '#1B1712', line: '#2B251B',
+  text: '#F4F1E8', muted: '#9C9585',
+  accent: '#C4A868', accent2: '#A88B4A', accentSoft: 'rgba(196,168,104,0.12)',
+  accentText: '#C4A868',            // oro per testi e icone
+  accentBorder: '#C4A868',          // oro per i bordi di selezione
+  accentLine: 'rgba(196,168,104,0.32)', accentLine2: 'rgba(196,168,104,0.6)',
+  onAccent: '#14110D',              // testo sopra l'oro
+  danger: '#FF7A6E', dangerSoft: 'rgba(255,122,110,0.12)', ok: '#5BC48A', series2: '#8C877A',
+  // sfumature di sfondo (quasi piatte: il sito è sobrio)
+  heroA: '#17130D', heroB: '#0C0C0C', welA: '#17130D', tabEnd: '#0C0C0C',
+  tileA: '#F4F0E8', tileB: '#EDE7DA', photoA: '#1F1A12', photoB: '#14110D', barberA: '#1F1A12', barberB: '#14110D',
+  loyA: '#1B160D', loyB: '#0F0D09', mapA: '#14120D', mapB: '#0A0907',
+  // ombre, calendario, pagina iniziale
+  scrim: 'rgba(0,0,0,0.7)', shadow: '#000000', shadowO: 0.5,
+  calCard: '#14110D', calBar: 'rgba(12,12,12,0.96)', calOff: 'rgba(156,149,133,0.38)',
+  welTitle: '#C4A868', welLine: 'rgba(196,168,104,0.7)',
   // alias usati più in basso nel codice
-  ink: '#F8F4EA', paper: '#070706', steel: '#A39D8E', red: '#FF6B5E',
+  ink: '#F4F1E8', paper: '#0C0C0C', steel: '#9C9585', red: '#FF7A6E',
 };
 const LIGHT: typeof DARK = {
-  bg: '#FAF8F3', card: '#FFFFFF', card2: '#F2EEE4', line: '#DCD5C2',
-  text: '#1A160D', muted: '#6B6554',
-  accent: '#ECC052', accent2: '#B98A22', accentSoft: 'rgba(185,138,34,0.14)',
-  accentText: '#7F5C0D',
-  accentBorder: '#B38420',
-  accentLine: 'rgba(185,138,34,0.40)', accentLine2: 'rgba(185,138,34,0.65)',
-  danger: '#C8362B', dangerSoft: 'rgba(200,54,43,0.10)', ok: '#178A49', series2: '#746E5D',
-  heroA: '#F5E6B8', heroB: '#FAF1D9', welA: '#F3E2B0', tabEnd: '#F4EAD0',
-  tileA: '#F6E8BE', tileB: '#EBD79B', photoA: '#F3E3B3', photoB: '#E8D39A', barberA: '#F3E3B3', barberB: '#E8D39A',
-  loyA: '#F7E9BF', loyB: '#FFFFFF', mapA: '#EFE9DB', mapB: '#E4DCC8',
-  scrim: 'rgba(26,22,13,0.45)', shadow: '#3A2D0B', shadowO: 0.14,
-  glassBorder: 'rgba(0,0,0,0.08)', glassA: 'rgba(255,255,255,0.75)', glassB: 'rgba(255,255,255,0.35)',
-  glassTint: 'rgba(236,192,82,0.14)', nativeTint: 'rgba(236,192,82,0.18)',
-  calCard: 'rgba(255,255,255,0.96)', calBar: 'rgba(250,248,243,0.96)', calOff: 'rgba(107,101,84,0.35)',
-  welTitle: '#7A5708', welLine: 'rgba(185,138,34,0.7)', welGhostBg: 'rgba(255,255,255,0.6)',
-  ink: '#1A160D', paper: '#FAF8F3', steel: '#6B6554', red: '#C8362B',
+  bg: '#F8F8F4', card: '#FFFFFF', card2: '#F4F0E8', line: '#E6DFCB',
+  text: '#0C0C0C', muted: '#5C5C5C',
+  accent: '#C4A868', accent2: '#A88B4A', accentSoft: 'rgba(196,168,104,0.16)',
+  accentText: '#7F6325',
+  accentBorder: '#A8873D',
+  accentLine: 'rgba(168,135,61,0.38)', accentLine2: 'rgba(168,135,61,0.7)',
+  onAccent: '#14110D',
+  danger: '#B3302A', dangerSoft: 'rgba(179,48,42,0.08)', ok: '#17803F', series2: '#746E5D',
+  heroA: '#F4F0E8', heroB: '#F8F8F4', welA: '#17130D', tabEnd: '#F8F8F4',
+  tileA: '#F4F0E8', tileB: '#EDE7DA', photoA: '#EDE7DA', photoB: '#E4DCC8', barberA: '#EDE7DA', barberB: '#E4DCC8',
+  loyA: '#FFFFFF', loyB: '#F4F0E8', mapA: '#EFE9DB', mapB: '#E4DCC8',
+  scrim: 'rgba(12,12,12,0.5)', shadow: '#3A2D0B', shadowO: 0.12,
+  calCard: '#FFFFFF', calBar: 'rgba(248,248,244,0.96)', calOff: 'rgba(92,92,92,0.35)',
+  welTitle: '#C4A868', welLine: 'rgba(196,168,104,0.8)',
+  ink: '#0C0C0C', paper: '#F8F8F4', steel: '#5C5C5C', red: '#B3302A',
 };
 type Mode = 'dark' | 'light';
 type ThemePref = 'auto' | 'light' | 'dark';
@@ -153,66 +152,101 @@ const mapsRoute = (addr: string) => `https://www.google.com/maps/dir/?api=1&dest
 const redirectTo: string | undefined = Platform.OS === 'web' ? (globalThis as any).location?.origin : undefined;
 const openUrl = (url: string) => { Linking.openURL(url).catch(() => Alert.alert('Non riesco ad aprire il collegamento')); };
 
-// ───────── Moduli facoltativi ─────────
-// Carattere elegante per i titoli (Playfair Display): se i pacchetti non sono installati
-// l'app funziona lo stesso, con il carattere serif di sistema.
+// ───────── Caratteri ─────────
+// Titoli: Bebas Neue (condensato, come sul sito). Frasi in corsivo: Cormorant Garamond. Testo normale: carattere di sistema.
+// Se i pacchetti dei caratteri non sono installati l'app funziona lo stesso, con i caratteri di sistema.
 const SERIF = Platform.select({ ios: 'Georgia', android: 'serif', default: 'Georgia, "Times New Roman", serif' }) as string;
 let useFontsHook: any = null;
 let BRAND_FONTS: any = null;
 try {
   useFontsHook = require('expo-font').useFonts;
-  const pf = require('@expo-google-fonts/playfair-display');
-  BRAND_FONTS = { PlayfairDisplay_700Bold: pf.PlayfairDisplay_700Bold, PlayfairDisplay_700Bold_Italic: pf.PlayfairDisplay_700Bold_Italic };
+  const bb = require('@expo-google-fonts/bebas-neue');
+  const cg = require('@expo-google-fonts/cormorant-garamond');
+  BRAND_FONTS = { BebasNeue_400Regular: bb.BebasNeue_400Regular, CormorantGaramond_500Medium_Italic: cg.CormorantGaramond_500Medium_Italic };
 } catch {
   // pacchetti assenti
 }
-// Restituisce [carattere, pronto, corsivo]
-const useBrandFont: () => [string, boolean, string] =
-  useFontsHook && BRAND_FONTS
-    ? () => {
-        const [ok, err] = useFontsHook(BRAND_FONTS);
-        return ok ? ['PlayfairDisplay_700Bold', true, 'PlayfairDisplay_700Bold_Italic'] : [SERIF, !!err, SERIF];
-      }
-    : () => [SERIF, true, SERIF];
+// Famiglie realmente caricate (vuote finché non sono pronte, o se i pacchetti mancano)
+const FONT: { display?: string; italic?: string } = {};
+// true quando si può disegnare: caratteri pronti, errore di caricamento o pacchetti assenti
+function useBrandFont(): boolean {
+  const [ok, err] = useFontsHook && BRAND_FONTS ? useFontsHook(BRAND_FONTS) : [false, null];
+  if (ok && BRAND_FONTS && !FONT.display) {
+    FONT.display = 'BebasNeue_400Regular';
+    FONT.italic = 'CormorantGaramond_500Medium_Italic';
+    s = makeStyles(); // ricrea gli stili con i caratteri ora disponibili
+  }
+  return !!ok || !!err || !BRAND_FONTS;
+}
+// Stili di testo ricorrenti
+const disp = (size: number, track = 1) =>
+  FONT.display
+    ? { fontFamily: FONT.display, fontSize: size, letterSpacing: track, textTransform: 'uppercase' as const }
+    : { fontWeight: '800' as const, fontSize: Math.round(size * 0.8), letterSpacing: track * 0.6, textTransform: 'uppercase' as const };
+const ital = (size: number) =>
+  FONT.italic ? { fontFamily: FONT.italic, fontSize: size } : { fontFamily: SERIF, fontStyle: 'italic' as const, fontSize: Math.round(size * 0.9) };
+const lab = (size = 11, track = 2.6) => ({ fontSize: size, fontWeight: '600' as const, letterSpacing: track, textTransform: 'uppercase' as const });
 
 type Cart = Record<string, { p: any; qty: number }>;
 type StaffScope = { salonIds: string[] | null }; // null = tutte le sedi (titolare)
 type Tab = 'book' | 'shop' | 'team' | 'contacts' | 'profile' | 'mine' | 'myday' | 'agenda' | 'new' | 'off' | 'orders' | 'control' | 'more';
 
-// ───────── Vetro liquido ─────────
-// iPhone con iOS 26: effetto nativo Liquid Glass (expo-glass-effect).
-// Altrove, o se il modulo non è disponibile: vetro smerigliato (sfocatura, riflesso e bordo luminoso).
-let NativeGlass: any = null;
-let liquidOk = false;
-try {
-  const g = require('expo-glass-effect');
-  if (Platform.OS === 'ios' && g.isLiquidGlassAvailable() && g.isGlassEffectAPIAvailable()) {
-    NativeGlass = g.GlassView;
-    liquidOk = true;
-  }
-} catch {
-  // modulo assente: resta il vetro smerigliato
+// ───────── Elementi di stile del sito ─────────
+// Pannello piatto con filetto sottile (al posto del vecchio "vetro")
+function Panel({ children, style }: { children?: ReactNode; style?: StyleProp<ViewStyle>; radius?: number; tint?: string }) {
+  return <View style={[{ backgroundColor: C.card, borderWidth: 1, borderColor: C.line }, style]}>{children}</View>;
 }
 
-function Glass({ children, style, radius = 22, tint }: { children?: ReactNode; style?: StyleProp<ViewStyle>; radius?: number; tint?: string }) {
-  const shell: ViewStyle = { borderRadius: radius, overflow: 'hidden', borderWidth: 1, borderColor: C.glassBorder };
-  if (liquidOk) {
-    return (
-      <NativeGlass glassEffectStyle="regular" tintColor={tint ?? C.nativeTint} colorScheme={MODE} style={[shell, style]}>
-        {children}
-      </NativeGlass>
-    );
-  }
+// Parentesi agli spigoli: il motivo ricorrente del sito (quattro "L" sottili)
+function Brackets({ size = 16, inset = 10, color, w = 1 }: { size?: number; inset?: number; color?: string; w?: number }) {
+  const c = color ?? C.accentLine2;
+  const b = { position: 'absolute' as const, width: size, height: size, borderColor: c };
   return (
-    <BlurView intensity={50} tint={MODE} style={[shell, style]}>
-      <LinearGradient
-        colors={[C.glassA, C.glassB, tint ?? C.glassTint]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
-      {children}
-    </BlurView>
+    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      <View style={[b, { top: inset, left: inset, borderTopWidth: w, borderLeftWidth: w }]} />
+      <View style={[b, { top: inset, right: inset, borderTopWidth: w, borderRightWidth: w }]} />
+      <View style={[b, { bottom: inset, left: inset, borderBottomWidth: w, borderLeftWidth: w }]} />
+      <View style={[b, { bottom: inset, right: inset, borderBottomWidth: w, borderRightWidth: w }]} />
+    </View>
+  );
+}
+
+// Marchio "DF" fra le parentesi (come nella testata del sito)
+function DFMark({ size = 40, color }: { size?: number; color?: string }) {
+  const c = color ?? C.accentText;
+  return (
+    <View style={{ width: Math.round(size * 1.7), height: size, alignItems: 'center', justifyContent: 'center' }} accessible accessibilityLabel="DF Barbershop">
+      <Brackets size={Math.round(size * 0.2)} inset={0} color={c} />
+      <Text allowFontScaling={false} style={[disp(size * 0.7, 0), { color: c, lineHeight: Math.round(size * 0.8) }]}>DF</Text>
+    </View>
+  );
+}
+
+// Etichetta con filetto: "CATALOGO ————" oppure, al centro, "—— CATALOGO ——"
+function Eyebrow({ t, center }: { t: string; center?: boolean }) {
+  return (
+    <View style={[s.eyebrowRow, center && { justifyContent: 'center' }]}>
+      {center && <View style={s.eyebrowLine} />}
+      <Text style={s.eyebrow}>{t}</Text>
+      <View style={[s.eyebrowLine, !center && { flex: 1 }]} />
+    </View>
+  );
+}
+
+// Titolo di pagina: etichetta, titolo condensato (l'ultima parola in oro), filetto e frase in corsivo
+function PageTitle({ t, eyebrow, sub }: { t: string; eyebrow?: string; sub?: string }) {
+  const words = t.split(' ');
+  const last = words.length > 1 ? words.pop() : null;
+  return (
+    <View style={{ marginBottom: 4 }}>
+      {eyebrow ? <Eyebrow t={eyebrow} /> : null}
+      <Text style={s.h1} accessibilityRole="header">
+        {words.join(' ')}
+        {last ? <Text style={{ color: C.accentText }}> {last}</Text> : null}
+      </Text>
+      <View style={s.rule} />
+      {sub ? <Text style={s.lead}>{sub}</Text> : null}
+    </View>
   );
 }
 
@@ -224,7 +258,19 @@ function Chip({ label, sub, on, onPress }: { label: string; sub?: string | null;
     </Pressable>
   );
 }
-const Title = ({ t }: { t: string }) => <Text style={[s.h2, { marginTop: 24, marginBottom: 10 }]}>{t}</Text>;
+const Title = ({ t }: { t: string }) => (
+  <View style={s.titleRow}>
+    <Text style={s.h2} accessibilityRole="header">{t}</Text>
+    <View style={s.titleLine} />
+  </View>
+);
+
+// Pulsante piccolo quadrato (indietro, menu, frecce del calendario…)
+const IconBtn = ({ name, onPress, label, onDark }: { name: string; onPress: () => void; label: string; onDark?: boolean }) => (
+  <Pressable onPress={onPress} hitSlop={10} accessibilityRole="button" accessibilityLabel={label} style={[s.logoutBtn, onDark && { backgroundColor: 'rgba(12,12,12,0.55)', borderColor: 'rgba(196,168,104,0.5)' }]}>
+    <Ionicons name={name as any} size={20} color={onDark ? '#F4F1E8' : C.text} />
+  </Pressable>
+);
 
 // Scelta del tema (solo web: sul telefono si segue il sistema)
 const THEME_LABEL: Record<ThemePref, string> = { auto: 'Automatico', light: 'Chiaro', dark: 'Scuro' };
@@ -245,48 +291,38 @@ function ThemePicker() {
   );
 }
 // Pulsante rapido per la pagina iniziale (web): Automatico → Chiaro → Scuro
-function ThemeToggle({ top }: { top: number }) {
+function ThemeToggle({ top, onDark }: { top: number; onDark?: boolean }) {
   const [pref, setPref] = useThemePref();
   const next: ThemePref = pref === 'auto' ? 'light' : pref === 'light' ? 'dark' : 'auto';
   const icon = pref === 'auto' ? 'contrast-outline' : pref === 'light' ? 'sunny-outline' : 'moon-outline';
   return (
-    <Pressable
-      onPress={() => setPref(next)}
-      hitSlop={10}
-      accessibilityRole="button"
-      accessibilityLabel={`Tema: ${THEME_LABEL[pref]}. Tocca per cambiarlo`}
-      style={{ position: 'absolute', top, right: 16, zIndex: 5 }}
-    >
-      <Glass radius={20} style={s.logoutBtn}>
-        <Ionicons name={icon as any} size={20} color={C.text} />
-      </Glass>
-    </Pressable>
+    <View style={{ position: 'absolute', top, right: 16, zIndex: 5 }}>
+      <IconBtn name={icon} onPress={() => setPref(next)} label={`Tema: ${THEME_LABEL[pref]}. Tocca per cambiarlo`} onDark={onDark} />
+    </View>
   );
 }
 
 const Step = ({ n, t, done }: { n: number; t: string; done?: boolean }) => (
   <View style={s.stepRow}>
     <View style={[s.stepNum, done && s.stepNumOn]}>
-      {done ? <Ionicons name="checkmark" size={16} color="#000" /> : <Text style={s.stepNumT}>{n}</Text>}
+      {done ? <Ionicons name="checkmark" size={16} color={C.onAccent} /> : <Text style={s.stepNumT}>{String(n).padStart(2, '0')}</Text>}
     </View>
-    <Text style={s.h2}>{t}</Text>
+    <Text style={s.h2} accessibilityRole="header">{t}</Text>
+    <View style={s.titleLine} />
   </View>
 );
 
 function Header({ onLogout, onMenu }: { onLogout: () => void; onMenu?: () => void }) {
   return (
     <View style={s.headerWrap}>
-      <LinearGradient colors={[C.heroA, C.bg]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
       <View style={s.header}>
-        <Glass radius={22} style={s.logoPill}>
-          <Image source={MODE === 'dark' ? require('./assets/logo-text.png') : require('./assets/logo-text-light.png')} style={s.headerLogo} resizeMode="contain" />
-        </Glass>
-        <View style={{ flex: 1 }} />
-        <Pressable onPress={onMenu ?? onLogout} hitSlop={12}>
-          <Glass radius={20} style={s.logoutBtn}>
-            <Ionicons name={onMenu ? 'ellipsis-horizontal' : 'log-out-outline'} size={22} color={C.text} />
-          </Glass>
-        </Pressable>
+        <DFMark size={38} />
+        <View style={s.headDiv} />
+        <View style={{ flex: 1 }}>
+          <Text style={s.headT} numberOfLines={1}>Daniele Fichera</Text>
+          <Text style={s.headSub} numberOfLines={1}>Barber Shop · Roma</Text>
+        </View>
+        <IconBtn name={onMenu ? 'person-outline' : 'log-out-outline'} onPress={onMenu ?? onLogout} label={onMenu ? 'Account' : 'Esci'} />
       </View>
     </View>
   );
@@ -431,36 +467,37 @@ function Shop({ cart, setCart, canEdit }: { cart: Cart; setCart: (c: Cart) => vo
   return (
     <View style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={[s.pad, { paddingBottom: count ? 110 : 40 }]}>
-        <Text style={s.h1}>Shop</Text>
-        <Text style={s.muted}>{items.length} prodotti selezionati dai nostri barbieri</Text>
+        <PageTitle eyebrow="01 · Shop" t="Il nostro Shop" sub={`${items.length} prodotti scelti dai nostri barbieri`} />
         <View style={s.grid}>
           {items.map((p) => (
-            <Pressable key={p.id} style={s.product} onPress={() => openProduct(p)}>
-              {p.image_url ? (
-                <Image source={{ uri: p.image_url }} style={s.productImg} resizeMode="contain" />
-              ) : (
-                <LinearGradient colors={[C.tileA, C.tileB]} style={s.productIcon}>
-                  <Ionicons name="water-outline" size={32} color={C.accentText} />
-                </LinearGradient>
-              )}
-              <Text style={s.rowT} numberOfLines={2}>{p.name}</Text>
-              <Text style={[s.rowSub, { minHeight: 18 }]} numberOfLines={1}>{p.description ?? ''}</Text>
+            <Pressable key={p.id} style={s.product} onPress={() => openProduct(p)} accessibilityRole="button" accessibilityLabel={`${p.name}, ${eur(p.price_cents)}`}>
+              <View style={[s.productTile, !p.image_url && { backgroundColor: C.card2 }]}>
+                {p.image_url ? (
+                  <Image source={{ uri: p.image_url }} style={s.productImg} resizeMode="contain" />
+                ) : (
+                  <Ionicons name="water-outline" size={34} color={C.accentText} />
+                )}
+              </View>
+              <Text style={s.prodName} numberOfLines={2}>{p.name}</Text>
+              <Text style={[s.prodDesc, { minHeight: 18 }]} numberOfLines={1}>{p.description ?? ''}</Text>
               <View style={s.productFoot}>
                 <Text style={s.price}>{eur(p.price_cents)}</Text>
-                <Pressable onPress={() => setQty(p, (cart[p.id]?.qty ?? 0) + 1)} hitSlop={8} style={s.plus}>
-                  <Ionicons name="add" size={20} color="#000" />
+                <Pressable onPress={() => setQty(p, (cart[p.id]?.qty ?? 0) + 1)} hitSlop={8} style={s.plus} accessibilityRole="button" accessibilityLabel={`Aggiungi ${p.name} al carrello`}>
+                  <Ionicons name="add" size={18} color={C.onAccent} />
                 </Pressable>
               </View>
+              <Brackets size={11} inset={6} />
             </Pressable>
           ))}
         </View>
       </ScrollView>
 
       {count > 0 && (
-        <Pressable style={s.cartBar} onPress={() => setCheckout(true)}>
-          <Ionicons name="bag-handle" size={22} color="#000" />
-          <Text style={s.cartT}>Carrello ({count})</Text>
+        <Pressable style={s.cartBar} onPress={() => setCheckout(true)} accessibilityRole="button" accessibilityLabel={`Apri il carrello, ${count} articoli, ${eur(total)}`}>
+          <Ionicons name="bag-handle-outline" size={20} color={C.onAccent} />
+          <Text style={[s.cartT, { flex: 1 }]}>Carrello ({count})</Text>
           <Text style={s.cartT}>{eur(total)}</Text>
+          <Ionicons name="arrow-forward" size={18} color={C.onAccent} />
         </Pressable>
       )}
 
@@ -470,15 +507,16 @@ function Shop({ cart, setCart, canEdit }: { cart: Cart; setCart: (c: Cart) => vo
         <View style={s.sheet}>
           {open && (
             <>
-              {open.image_url ? (
-                <Image source={{ uri: open.image_url }} style={s.productImgBig} resizeMode="contain" />
-              ) : (
-                <LinearGradient colors={[C.tileA, C.tileB]} style={s.productIconBig}>
+              <View style={[s.productTileBig, !open.image_url && { backgroundColor: C.card2 }]}>
+                {open.image_url ? (
+                  <Image source={{ uri: open.image_url }} style={s.productImgBig} resizeMode="contain" />
+                ) : (
                   <Ionicons name="water-outline" size={56} color={C.accentText} />
-                </LinearGradient>
-              )}
+                )}
+                <Brackets size={14} inset={8} />
+              </View>
               <Text style={s.h1}>{open.name}</Text>
-              <Text style={[s.price, { fontSize: 22 }]}>{eur(open.price_cents)}</Text>
+              <Text style={[s.price, { fontSize: 32 }]}>{eur(open.price_cents)}</Text>
               {editing ? (
                 <>
                   <TextInput
@@ -519,6 +557,7 @@ function Shop({ cart, setCart, canEdit }: { cart: Cart; setCart: (c: Cart) => vo
         <Pressable style={s.backdrop} onPress={() => setCheckout(false)} />
         <View style={s.sheet}>
           <Text style={s.h1}>Il tuo carrello</Text>
+          <View style={s.rule} />
           <ScrollView style={{ maxHeight: 260, marginTop: 10 }}>
             {lines.map((l) => (
               <View key={l.p.id} style={[s.row, { marginBottom: 6 }]}>
@@ -567,12 +606,19 @@ function Shop({ cart, setCart, canEdit }: { cart: Cart; setCart: (c: Cart) => vo
 type Done = { email: string; first: string; last: string; phone: string; active: boolean };
 
 // Campo con etichetta, errore e (facoltativo) elemento a destra
-function Field({ label, error, right, ...p }: TextInputProps & { label: string; error?: string | null; right?: ReactNode }) {
+function Field({ label, error, right, onFocus, onBlur, ...p }: TextInputProps & { label: string; error?: string | null; right?: ReactNode }) {
+  const [focus, setFocus] = useState(false);
   return (
-    <View style={{ marginTop: 14 }}>
+    <View style={{ marginTop: 16 }}>
       <Text style={s.fieldLabel}>{label}</Text>
-      <View style={[s.fieldBox, !!error && { borderColor: C.danger }]}>
-        <TextInput style={s.fieldInput} placeholderTextColor={C.muted} {...p} />
+      <View style={[s.fieldBox, focus && s.fieldFocus, !!error && { borderColor: C.danger }]}>
+        <TextInput
+          style={s.fieldInput}
+          placeholderTextColor={C.muted}
+          {...p}
+          onFocus={(e) => { setFocus(true); onFocus?.(e); }}
+          onBlur={(e) => { setFocus(false); onBlur?.(e); }}
+        />
         {right}
       </View>
       {error ? <Text style={s.fieldErr}>{error}</Text> : null}
@@ -588,126 +634,95 @@ function useCalm() {
   return calm;
 }
 
-// Alone luminoso: cerchi concentrici sempre più trasparenti (finto sfumato radiale, identico su iPhone e web)
-function Glow({ size, peak = 0.5 }: { size: number; peak?: number }) {
-  const n = 16;
-  return (
-    <View pointerEvents="none" style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-      {Array.from({ length: n }, (_, i) => {
-        const d = size * (1 - i / n);
-        return <View key={i} style={{ position: 'absolute', width: d, height: d, borderRadius: d / 2, backgroundColor: `rgba(236,192,82,${(peak / n).toFixed(3)})` }} />;
-      })}
-    </View>
-  );
-}
-
 // L'introduzione animata si vede una volta sola per sessione (non si ripete tornando indietro dall'accesso)
 let welcomePlayed = false;
 
-// Pagina iniziale: il logo, "Benvenuti" che sale da dietro una linea e le lettere che si ravvicinano, poi i due pulsanti.
-// Una sola entrata, lenta e pulita; poi tutto resta fermo.
+// Colori fissi della pagina iniziale: come sul sito è sempre su foto scura, anche con il tema chiaro
+const WEL = { ink: '#F4F1E8', gold: '#C4A868', soft: 'rgba(244,241,232,0.72)', line: 'rgba(196,168,104,0.7)' };
+
+// Pagina iniziale, come "Benvenuto in DF Barbershop" del sito: foto scura, etichetta, titolo in oro, filetto, frase e pulsanti.
+// Una sola entrata, lenta e pulita (le voci compaiono una dopo l'altra); poi tutto resta fermo.
 function Welcome({ onIn, onUp }: { onIn: () => void; onUp: () => void }) {
   const insets = useSafeAreaInsets();
-  const { width, height } = useWindowDimensions();
-  const [, ready, italic] = useBrandFont();
+  const { width } = useWindowDimensions();
   const calm = useCalm();
   const v0 = welcomePlayed ? 1 : 0; // tornando alla pagina l'introduzione non si ripete
-  const halo = useRef(new Animated.Value(v0)).current;  // alone dietro al logo
-  const logo = useRef(new Animated.Value(v0)).current;  // logo e cerchio sottile
-  const word = useRef(new Animated.Value(v0)).current;  // titolo: sale da dietro la maschera
-  const track = useRef(new Animated.Value(v0)).current; // spazio fra le lettere che si chiude (animazione non nativa)
-  const line = useRef(new Animated.Value(v0)).current;  // filetto e sottotitolo
-  const rise = useRef(new Animated.Value(v0)).current;  // pulsanti
-
-  const [late, setLate] = useState(false);
-  const started = useRef(false);
-  useEffect(() => { const id = setTimeout(() => setLate(true), 1500); return () => clearTimeout(id); }, []);
+  const photo = useRef(new Animated.Value(v0)).current;  // foto: esce dal nero
+  const label = useRef(new Animated.Value(v0)).current;  // "Est. Roma"
+  const intro = useRef(new Animated.Value(v0)).current;  // "Benvenuto in"
+  const name = useRef(new Animated.Value(v0)).current;   // "DF Barbershop"
+  const track = useRef(new Animated.Value(v0)).current;  // spazio fra le lettere che si chiude (animazione non nativa)
+  const line = useRef(new Animated.Value(v0)).current;   // filetto
+  const tag = useRef(new Animated.Value(v0)).current;    // frase
+  const rise = useRef(new Animated.Value(v0)).current;   // pulsanti
 
   useEffect(() => {
-    if ((!ready && !late) || started.current) return; // se i font tardano troppo si parte lo stesso
-    started.current = true;
     if (calm || welcomePlayed) {
       welcomePlayed = true;
-      [halo, logo, word, track, line, rise].forEach((v) => v.setValue(1));
+      [photo, label, intro, name, track, line, tag, rise].forEach((v) => v.setValue(1));
       return;
     }
     welcomePlayed = true;
     const go = (v: Animated.Value, duration: number, delay: number, easing: (t: number) => number, native = true) =>
       Animated.timing(v, { toValue: 1, duration, delay, easing, useNativeDriver: native });
     Animated.parallel([
-      go(halo, 1500, 0, Easing.out(Easing.cubic)),
-      go(logo, 900, 150, Easing.out(Easing.cubic)),
-      go(word, 1000, 750, Easing.out(Easing.exp)),
-      go(track, 1600, 750, Easing.out(Easing.cubic), false),
-      go(line, 700, 1600, Easing.out(Easing.cubic)),
-      go(rise, 700, 1850, Easing.out(Easing.cubic)),
+      go(photo, 1400, 0, Easing.out(Easing.cubic)),
+      go(label, 700, 500, Easing.out(Easing.cubic)),
+      go(intro, 800, 800, Easing.out(Easing.cubic)),
+      go(name, 1000, 1050, Easing.out(Easing.cubic)),
+      go(track, 1700, 1050, Easing.out(Easing.cubic), false),
+      go(line, 700, 1900, Easing.out(Easing.cubic)),
+      go(tag, 800, 2100, Easing.out(Easing.cubic)),
+      go(rise, 800, 2400, Easing.out(Easing.cubic)),
     ]).start();
-  }, [ready, late, calm]);
+  }, [calm]);
 
-  const disc = Math.round(Math.max(104, Math.min(132, height * 0.15)));
-  const ring = disc + 24;
-  const fs = Math.min(54, Math.round((width - 72) / 6.6));
-  const lh = Math.round(fs * 1.32);
-  const italicOk = italic !== SERIF;
+  const fs = Math.min(76, Math.round((width - 56) / 6.2));
+  const up = (v: Animated.Value, d = 12) => ({ opacity: v, transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [d, 0] }) }] });
 
   return (
-    <View style={[s.welcome, { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 20) + 6 }]}>
-      <LinearGradient colors={[C.welA, C.heroB, C.bg]} locations={[0, 0.5, 1]} style={StyleSheet.absoluteFill} />
-      {Platform.OS === 'web' && <ThemeToggle top={insets.top + 12} />}
+    <View style={[s.welcome, { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 20) + 8 }]}>
+      <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { opacity: photo }]}>
+        <Image source={require('./assets/hero.jpg')} style={StyleSheet.absoluteFill} resizeMode="cover" />
+      </Animated.View>
+      <LinearGradient colors={['rgba(12,12,12,0.55)', 'rgba(12,12,12,0.7)', 'rgba(12,12,12,0.94)']} locations={[0, 0.55, 1]} style={StyleSheet.absoluteFill} />
+      <StatusBar style="light" />
+      {Platform.OS === 'web' && <ThemeToggle top={insets.top + 12} onDark />}
 
       <View style={s.welBrand}>
-        <View style={{ width: ring, height: ring, alignItems: 'center', justifyContent: 'center' }}>
-          <Animated.View pointerEvents="none" style={{ position: 'absolute', opacity: halo }}>
-            <Glow size={Math.round(disc * 2.7)} peak={0.3} />
-          </Animated.View>
-          <Animated.View
-            pointerEvents="none"
-            style={{
-              position: 'absolute', width: ring, height: ring, borderRadius: ring / 2,
-              borderWidth: 1, borderColor: C.accentLine,
-              opacity: logo, transform: [{ scale: logo.interpolate({ inputRange: [0, 1], outputRange: [0.82, 1] }) }],
-            }}
-          />
-          <Animated.View style={{ opacity: logo, transform: [{ scale: logo.interpolate({ inputRange: [0, 1], outputRange: [0.9, 1] }) }] }}>
-            <Image source={require('./assets/logo.png')} style={{ width: disc, height: disc, borderRadius: disc / 2 }} resizeMode="contain" />
-          </Animated.View>
-        </View>
-
-        <View style={[s.welMask, { height: lh, marginTop: 34 }]} accessible accessibilityRole="header" accessibilityLabel="Benvenuti">
-          <Animated.View
-            style={{
-              opacity: word.interpolate({ inputRange: [0, 0.45, 1], outputRange: [0, 1, 1] }),
-              transform: [{ translateY: word.interpolate({ inputRange: [0, 1], outputRange: [lh, 0] }) }],
-            }}
+        <Animated.View style={[{ alignSelf: 'stretch' }, up(label, 6)]}>
+          <View style={[s.eyebrowRow, { justifyContent: 'center' }]}>
+            <View style={[s.eyebrowLine, { backgroundColor: WEL.line }]} />
+            <Text style={[s.eyebrow, { color: WEL.gold }]}>Est. Roma</Text>
+            <View style={[s.eyebrowLine, { backgroundColor: WEL.line }]} />
+          </View>
+        </Animated.View>
+        <View accessible accessibilityRole="header" accessibilityLabel="Benvenuto in DF Barbershop" style={{ alignSelf: 'stretch', alignItems: 'center' }}>
+          <Animated.Text allowFontScaling={false} style={[disp(Math.round(fs * 0.42), 0), { color: WEL.ink, marginTop: 14, textAlign: 'center' }, { letterSpacing: track.interpolate({ inputRange: [0, 1], outputRange: [fs * 0.5, fs * 0.2] }) }, up(intro, 10)]}>
+            Benvenuto in
+          </Animated.Text>
+          <Animated.Text
+            allowFontScaling={false}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            style={[disp(fs, 0), { color: WEL.gold, textAlign: 'center', marginTop: 2, alignSelf: 'stretch' }, { letterSpacing: track.interpolate({ inputRange: [0, 1], outputRange: [fs * 0.32, fs * 0.07] }) }, up(name, 14)]}
           >
-            <Animated.Text
-              numberOfLines={1}
-              ellipsizeMode="clip"
-              allowFontScaling={false}
-              style={[
-                s.welTitle,
-                { fontFamily: italic, fontSize: fs, lineHeight: lh, letterSpacing: track.interpolate({ inputRange: [0, 1], outputRange: [Math.round(fs * 0.16), 1] }) },
-                !italicOk && { fontStyle: 'italic', fontWeight: '700' },
-              ]}
-            >
-              Benvenuti
-            </Animated.Text>
-          </Animated.View>
+            DF Barbershop
+          </Animated.Text>
         </View>
-
         <Animated.View style={[s.welLine, { opacity: line, transform: [{ scaleX: line }] }]} />
-        <Animated.Text style={[s.welSub, { opacity: line, transform: [{ translateY: line.interpolate({ inputRange: [0, 1], outputRange: [6, 0] }) }] }]}>
-          BARBER SHOP · ROMA
-        </Animated.Text>
+        <Animated.View style={[{ alignItems: 'center' }, up(tag, 8)]}>
+          <Text style={s.welSub}>Eleganza, stile e professionalità</Text>
+          <Text style={s.welSub2}>Prenota il tuo posto e vivi l’esperienza firmata DF</Text>
+        </Animated.View>
       </View>
 
-      <Animated.View style={[s.welActions, { opacity: rise, transform: [{ translateY: rise.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) }] }]}>
-        <Pressable onPress={onIn} style={({ pressed }) => [s.welPrimaryWrap, pressed && { opacity: 0.92, transform: [{ scale: 0.985 }] }]}>
-          <LinearGradient colors={['#F4D26A', '#DDAE33']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.welPrimary}>
-            <Text style={s.welPrimaryT}>Accedi</Text>
-          </LinearGradient>
+      <Animated.View style={[s.welActions, up(rise, 18)]}>
+        <Pressable onPress={onIn} accessibilityRole="button" style={({ pressed }) => [s.welPrimary, pressed && { opacity: 0.85 }]}>
+          <Text style={s.welPrimaryT}>Accedi</Text>
+          <Ionicons name="arrow-forward" size={18} color={C.onAccent} />
         </Pressable>
-        <Pressable onPress={onUp} style={({ pressed }) => [s.welGhost, pressed && { backgroundColor: C.accentSoft, transform: [{ scale: 0.985 }] }]}>
+        <Pressable onPress={onUp} accessibilityRole="button" style={({ pressed }) => [s.welGhost, pressed && { backgroundColor: 'rgba(196,168,104,0.14)' }]}>
           <Text style={s.welGhostT}>Registrati</Text>
         </Pressable>
       </Animated.View>
@@ -724,12 +739,11 @@ function AuthShell({ title, sub, onBack, children }: { title: string; sub: strin
         keyboardShouldPersistTaps="handled"
       >
         <Pressable style={s.authBack} onPress={onBack} hitSlop={12}>
-          <Ionicons name="chevron-back" size={20} color={C.accentText} />
+          <Ionicons name="chevron-back" size={18} color={C.accentText} />
           <Text style={s.backT}>Indietro</Text>
         </Pressable>
-        <Image source={require('./assets/logo.png')} style={s.authMini} resizeMode="contain" />
-        <Text style={s.h1}>{title}</Text>
-        <Text style={s.muted}>{sub}</Text>
+        <View style={s.authMini}><DFMark size={46} /></View>
+        <PageTitle t={title} sub={sub} />
         {children}
       </ScrollView>
     </KeyboardAvoidingView>
@@ -910,7 +924,6 @@ function RegisterForm({ onBack, onSwitch, onHold, onDone }: { onBack: () => void
 // Conferma a tutta pagina dopo la registrazione: rinvia e-mail, invia WhatsApp, accedi
 function Registered({ info, onLogin }: { info: Done; onLogin: () => void }) {
   const insets = useSafeAreaInsets();
-  const [font] = useBrandFont();
   const [wait, setWait] = useState(0);
   const [salonWa, setSalonWa] = useState<string | null>(null);
   // Il numero WhatsApp del salone si legge subito: il tocco sul pulsante apre WhatsApp senza attese (Safari blocca le aperture ritardate)
@@ -939,14 +952,14 @@ function Registered({ info, onLogin }: { info: Done; onLogin: () => void }) {
   return (
     <Modal visible animationType="fade" presentationStyle="fullScreen" statusBarTranslucent onRequestClose={onLogin}>
       <View style={s.doneRoot}>
-        <LinearGradient colors={[C.heroA, C.heroB, C.bg]} locations={[0, 0.55, 1]} style={StyleSheet.absoluteFill} />
         <ScrollView contentContainerStyle={[s.doneBody, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 }]}>
-          <View style={s.welGlowSm} />
-          <Glass radius={60} style={s.doneIcon}>
-            <Ionicons name="checkmark" size={58} color={C.accentText} />
-          </Glass>
+          <View style={s.doneIcon}>
+            <Brackets size={18} inset={0} color={C.accentLine2} />
+            <Ionicons name="checkmark" size={54} color={C.accentText} />
+          </View>
           <Text style={s.doneKicker}>REGISTRAZIONE COMPLETATA</Text>
-          <Text style={[s.doneTitle, { fontFamily: font }]}>Grazie, {info.first}!</Text>
+          <Text style={s.doneTitle}>Grazie, {info.first}!</Text>
+          <View style={[s.rule, { alignSelf: 'center', marginBottom: 20 }]} />
           {info.active ? (
             <Text style={s.doneSub}>Il tuo account è pronto: puoi accedere subito e prenotare il tuo prossimo taglio.</Text>
           ) : (
@@ -959,16 +972,16 @@ function Registered({ info, onLogin }: { info: Done; onLogin: () => void }) {
 
           <View style={{ width: '100%', marginTop: 34 }}>
             <Pressable onPress={resend} disabled={wait > 0}>
-              <Glass radius={16} style={[s.doneBtn, wait > 0 && { opacity: 0.55 }]}>
+              <Panel style={[s.doneBtn, wait > 0 && { opacity: 0.55 }]}>
                 <Ionicons name="mail-outline" size={20} color={C.text} />
                 <Text style={s.doneBtnT}>{wait > 0 ? `Rinvia e-mail (${wait}s)` : 'Rinvia e-mail'}</Text>
-              </Glass>
+              </Panel>
             </Pressable>
             <Pressable onPress={whatsapp} style={{ marginTop: 12 }}>
-              <Glass radius={16} style={s.doneBtn}>
-                <Ionicons name="logo-whatsapp" size={20} color="#25D366" />
+              <Panel style={s.doneBtn}>
+                <Ionicons name="logo-whatsapp" size={20} color={C.accentText} />
                 <Text style={s.doneBtnT}>Invia WhatsApp</Text>
-              </Glass>
+              </Panel>
             </Pressable>
             <Pressable style={s.btn} onPress={onLogin}>
               <Text style={s.btnT}>Accedi</Text>
@@ -1012,18 +1025,18 @@ function BarberCard({ name, url, firstFree, fav, on, onPress }: { name: string; 
         {url && !firstFree ? (
           <Image source={{ uri: url }} style={s.bPhoto} />
         ) : (
-          <LinearGradient colors={[C.photoA, C.photoB]} style={[s.bPhoto, { alignItems: 'center', justifyContent: 'center' }]}>
-            {firstFree ? <Ionicons name="flash" size={34} color={C.accentText} /> : <Text style={s.bIni}>{ini}</Text>}
-          </LinearGradient>
+          <View style={[s.bPhoto, { alignItems: 'center', justifyContent: 'center' }]}>
+            {firstFree ? <Ionicons name="flash-outline" size={32} color={C.accentText} /> : <Text style={s.bIni}>{ini}</Text>}
+          </View>
         )}
         {fav && (
           <View style={s.bFav}>
-            <Ionicons name="star" size={11} color="#000" />
+            <Ionicons name="star" size={11} color={C.onAccent} />
           </View>
         )}
         {on && (
           <View style={s.bCheck}>
-            <Ionicons name="checkmark" size={14} color="#000" />
+            <Ionicons name="checkmark" size={14} color={C.onAccent} />
           </View>
         )}
       </View>
@@ -1096,8 +1109,8 @@ function BarberHistory({ uid, staffId, name, photo }: { uid: string; staffId: st
     return (
       <View key={r.id} style={[s.hisRow, soon && { borderColor: C.accentBorder, backgroundColor: C.accentSoft }]}>
         <View style={[s.hisDate, soon && { backgroundColor: C.accent }]}>
-          <Text style={[s.hisDay, soon && { color: '#000' }]}>{d.toLocaleDateString('it-IT', { day: 'numeric', timeZone: tz })}</Text>
-          <Text style={[s.hisMon, soon && { color: '#000' }]}>{d.toLocaleDateString('it-IT', { month: 'short', timeZone: tz }).replace('.', '')}</Text>
+          <Text style={[s.hisDay, soon && { color: C.onAccent }]}>{d.toLocaleDateString('it-IT', { day: 'numeric', timeZone: tz })}</Text>
+          <Text style={[s.hisMon, soon && { color: C.onAccent }]}>{d.toLocaleDateString('it-IT', { month: 'short', timeZone: tz }).replace('.', '')}</Text>
         </View>
         <View style={{ flex: 1 }}>
           <Text style={s.rowT} numberOfLines={1}>{r.services?.name ?? 'Servizio'}</Text>
@@ -1148,7 +1161,7 @@ function BarberHistory({ uid, staffId, name, photo }: { uid: string; staffId: st
               <Text style={s.hisLbl}>{nVisits === 1 ? 'visita' : 'visite'}</Text>
             </View>
             <View style={s.hisTile}>
-              <Text style={[s.hisNum, { fontSize: 19 }]} numberOfLines={1} adjustsFontSizeToFit>{lastTxt}</Text>
+              <Text style={[s.hisNum, { fontSize: 26 }]} numberOfLines={1} adjustsFontSizeToFit>{lastTxt}</Text>
               <Text style={s.hisLbl}>ultima volta</Text>
             </View>
             <View style={s.hisTile}>
@@ -1182,7 +1195,6 @@ function BarberHistory({ uid, staffId, name, photo }: { uid: string; staffId: st
 
 function Book({ onBooked, staff, uid }: { onBooked: () => void; staff?: StaffScope; uid?: string }) {
   const insets = useSafeAreaInsets();
-  const [font] = useBrandFont();
   const today = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }, []);
   const lastDay = useMemo(() => { const d = new Date(today); d.setDate(d.getDate() + HORIZON_DAYS); return d; }, [today]);
 
@@ -1430,9 +1442,9 @@ function Book({ onBooked, staff, uid }: { onBooked: () => void; staff?: StaffSco
             <Text style={s.rowT} numberOfLines={1}>{service.name}</Text>
             <Text style={s.rowSub} numberOfLines={1}>{eur(service.price_cents)} · {durLabel(service.duration_min)} · {barberName}</Text>
           </View>
-          <Pressable style={s.bookGo} onPress={openCalendar}>
-            <Text style={s.btnT}>Prenota</Text>
-            <Ionicons name="arrow-forward" size={18} color="#000" />
+          <Pressable style={s.bookGo} onPress={openCalendar} accessibilityRole="button">
+            <Text style={s.goT}>Prenota</Text>
+            <Ionicons name="arrow-forward" size={16} color={C.onAccent} />
           </Pressable>
         </View>
       )}
@@ -1440,35 +1452,28 @@ function Book({ onBooked, staff, uid }: { onBooked: () => void; staff?: StaffSco
       {/* Pagina del calendario, a tutto schermo */}
       <Modal visible={stage === 'calendar'} animationType="slide" presentationStyle="fullScreen" onRequestClose={() => setStage('pick')}>
         <KeyboardAvoidingView style={s.calRoot} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <LinearGradient colors={[C.heroA, C.heroB, C.bg]} locations={[0, 0.45, 1]} style={StyleSheet.absoluteFill} />
           <View style={[s.calTop, { paddingTop: insets.top + 8 }]}>
-            <Pressable onPress={() => setStage('pick')} hitSlop={10}>
-              <Glass radius={20} style={s.logoutBtn}>
-                <Ionicons name="chevron-back" size={22} color={C.text} />
-              </Glass>
-            </Pressable>
+            <IconBtn name="chevron-back" onPress={() => setStage('pick')} label="Indietro" />
             <View style={{ flex: 1 }}>
-              <Text style={[s.calTitle, { fontFamily: font }]}>Scegli data e orario</Text>
+              <Text style={s.eyebrow}>Prenota</Text>
+              <Text style={s.calTitle} accessibilityRole="header">Data e orario</Text>
               <Text style={s.rowSub} numberOfLines={1}>{service?.name} · {barberName} · {salon?.name}</Text>
             </View>
           </View>
 
           <ScrollView contentContainerStyle={s.calBody} keyboardShouldPersistTaps="handled">
             <View style={s.calCard}>
+              <Brackets size={14} inset={8} />
               <View style={s.calHead}>
-                <Pressable onPress={() => canPrev && setMonth(addMonths(month, -1))} disabled={!canPrev} hitSlop={8} style={!canPrev && { opacity: 0.3 }}>
-                  <Glass radius={18} style={s.calArrow}>
-                    <Ionicons name="chevron-back" size={18} color={C.text} />
-                  </Glass>
+                <Pressable onPress={() => canPrev && setMonth(addMonths(month, -1))} disabled={!canPrev} hitSlop={8} accessibilityRole="button" accessibilityLabel="Mese precedente" style={[s.calArrow, !canPrev && { opacity: 0.3 }]}>
+                  <Ionicons name="chevron-back" size={18} color={C.text} />
                 </Pressable>
                 <View style={{ alignItems: 'center' }}>
-                  <Text style={[s.calMonth, { fontFamily: font }]}>{cap(month.toLocaleDateString('it-IT', { month: 'long' }))}</Text>
+                  <Text style={s.calMonth}>{cap(month.toLocaleDateString('it-IT', { month: 'long' }))}</Text>
                   <Text style={s.calYear}>{month.getFullYear()}</Text>
                 </View>
-                <Pressable onPress={() => canNext && setMonth(addMonths(month, 1))} disabled={!canNext} hitSlop={8} style={!canNext && { opacity: 0.3 }}>
-                  <Glass radius={18} style={s.calArrow}>
-                    <Ionicons name="chevron-forward" size={18} color={C.text} />
-                  </Glass>
+                <Pressable onPress={() => canNext && setMonth(addMonths(month, 1))} disabled={!canNext} hitSlop={8} accessibilityRole="button" accessibilityLabel="Mese successivo" style={[s.calArrow, !canNext && { opacity: 0.3 }]}>
+                  <Ionicons name="chevron-forward" size={18} color={C.text} />
                 </Pressable>
               </View>
 
@@ -1538,7 +1543,7 @@ function Book({ onBooked, staff, uid }: { onBooked: () => void; staff?: StaffSco
               )}
             </View>
             <Pressable style={[s.bookGo, (!slot || busy) && { opacity: 0.4 }]} disabled={!slot || busy} onPress={book}>
-              <Text style={s.btnT}>{busy ? 'Un attimo…' : staff ? 'Salva' : 'Conferma'}</Text>
+              <Text style={s.goT}>{busy ? 'Un attimo…' : staff ? 'Salva' : 'Conferma'}</Text>
             </Pressable>
           </View>
         </KeyboardAvoidingView>
@@ -1580,9 +1585,10 @@ function Mine({ session, refreshKey }: { session: Session; refreshKey: number })
 
   return (
     <ScrollView contentContainerStyle={s.pad}>
-      {rows.length === 0 && <Text style={s.muted}>Nessun appuntamento in programma. Prenota il tuo prossimo taglio dalla scheda Prenota.</Text>}
+      <PageTitle eyebrow="01 · Appuntamenti" t="La tua agenda" />
+      {rows.length === 0 && <Text style={[s.muted, { marginTop: 14 }]}>Nessun appuntamento in programma. Prenota il tuo prossimo taglio dalla scheda Prenota.</Text>}
       {rows.map((r) => (
-        <View key={r.id} style={[s.card, { flexDirection: 'row', gap: 14 }]}>
+        <View key={r.id} style={[s.card, { flexDirection: 'row', gap: 14, marginTop: 14 }]}>
           <View style={s.badge}>
             <Text style={s.badgeN}>{new Date(r.starts_at).getDate()}</Text>
             <Text style={s.badgeM}>{new Date(r.starts_at).toLocaleDateString('it-IT', { month: 'short' })}</Text>
@@ -1590,8 +1596,8 @@ function Mine({ session, refreshKey }: { session: Session; refreshKey: number })
           <View style={{ flex: 1 }}>
             <Text style={s.rowT}>{hhmm(r.starts_at, r.salons.timezone)}, {r.services.name}</Text>
             <Text style={s.rowSub}>con {r.staff.name}, {r.salons.name}</Text>
-            <Pressable onPress={() => cancel(r.id)} style={{ marginTop: 10 }}>
-              <Text style={{ color: C.danger, fontWeight: '700' }}>Disdici</Text>
+            <Pressable onPress={() => cancel(r.id)} style={{ marginTop: 10 }} accessibilityRole="button">
+              <Text style={[s.link, { color: C.danger }]}>Disdici</Text>
             </Pressable>
           </View>
         </View>
@@ -1788,7 +1794,7 @@ function TimeOff({ staff, uid }: { staff: StaffScope; uid: string }) {
               {dayLabel(first)}{ymd(first) !== ymd(last) ? ` al ${dayLabel(last)}` : ''}{r.reason ? `, ${r.reason}` : ''}
             </Text>
             <Pressable onPress={() => remove(r.id)} style={{ marginTop: 10 }}>
-              <Text style={{ color: C.red, fontWeight: '700' }}>Elimina</Text>
+              <Text style={[s.link, { color: C.danger }]}>Elimina</Text>
             </Pressable>
           </View>
         );
@@ -1868,12 +1874,12 @@ function Agenda({ staff }: { staff: StaffScope }) {
 
 // ───────── Avatar ─────────
 function Avatar({ name, url, size = 44 }: { name: string; url?: string | null; size?: number }) {
-  const base = { width: size, height: size, borderRadius: size / 2 };
+  const base = { width: size, height: size, borderRadius: 2 };
   if (url) return <Image source={{ uri: url }} style={[base, { backgroundColor: C.card2 }]} />;
   const ini = name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
   return (
     <View style={[base, { backgroundColor: C.accentSoft, alignItems: 'center', justifyContent: 'center' }]}>
-      <Text style={{ color: C.accentText, fontWeight: '800', fontSize: size * 0.38 }}>{ini}</Text>
+      <Text style={[disp(size * 0.5, 0.5), { color: C.accentText }]}>{ini}</Text>
     </View>
   );
 }
@@ -1979,8 +1985,8 @@ function MyDay({ uid }: { uid: string }) {
   if (ids && ids.length === 0) {
     return (
       <ScrollView contentContainerStyle={s.pad}>
-        <Text style={s.h1}>La mia giornata</Text>
-        <Text style={s.muted}>Il tuo accesso non è ancora collegato a un barbiere. Il titolare deve collegarlo nella tabella staff (colonna user_id).</Text>
+        <PageTitle eyebrow="Area barbiere" t="La mia giornata" />
+        <Text style={[s.muted, { marginTop: 14 }]}>Il tuo accesso non è ancora collegato a un barbiere. Il titolare deve collegarlo nella tabella staff (colonna user_id).</Text>
       </ScrollView>
     );
   }
@@ -1989,8 +1995,8 @@ function MyDay({ uid }: { uid: string }) {
   const done = rows.filter((r) => r.status === 'completed').length;
   return (
     <ScrollView contentContainerStyle={s.pad}>
-      <Text style={s.h1}>La mia giornata</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, marginTop: 10 }}>
+      <PageTitle eyebrow="Area barbiere" t="La mia giornata" />
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, marginTop: 14 }}>
         {days.map((d) => <DayTile key={ymd(d)} d={d} on={ymd(d) === ymd(day)} onPress={() => setDay(d)} />)}
       </ScrollView>
       <View style={[s.wrap, { marginTop: 18 }]}>
@@ -2058,29 +2064,28 @@ function Barbers({ canEdit, uid }: { canEdit: boolean; uid?: string }) {
 
   return (
     <ScrollView contentContainerStyle={s.pad}>
-      <Text style={s.h1}>I nostri barbieri</Text>
-      <Text style={s.muted}>{canEdit ? 'Tocca una foto per cambiarla.' : uid ? 'Tocca la stella per scegliere il tuo barbiere preferito.' : 'Il team di DF Barbershop.'}</Text>
+      <PageTitle eyebrow="01 · Il team" t="I nostri barbieri" sub={canEdit ? 'Tocca una foto per cambiarla.' : uid ? 'Tocca la stella per scegliere il tuo barbiere preferito.' : 'Il team di DF Barbershop.'} />
       <View style={s.grid}>
         {rows.map((st) => (
           <Pressable key={st.id} style={s.barber} onPress={() => pick(st)}>
             {st.photo_url ? (
               <Image source={{ uri: st.photo_url }} style={s.barberPhoto} />
             ) : (
-              <LinearGradient colors={[C.barberA, C.barberB]} style={[s.barberPhoto, { alignItems: 'center', justifyContent: 'center' }]}>
-                <Text style={{ color: C.accentText, fontSize: 44, fontWeight: '800' }}>
+              <View style={[s.barberPhoto, { alignItems: 'center', justifyContent: 'center' }]}>
+                <Text style={[disp(54, 2), { color: C.accentText }]}>
                   {st.name.split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase()}
                 </Text>
-              </LinearGradient>
+              </View>
             )}
             {busyId === st.id && <ActivityIndicator style={StyleSheet.absoluteFill} color={C.accentText} />}
-            {canEdit && <View style={s.camera}><Ionicons name="camera" size={16} color="#000" /></View>}
+            {canEdit && <View style={s.camera}><Ionicons name="camera" size={16} color={C.onAccent} /></View>}
             {uid ? (
               <Pressable style={s.favBtn} onPress={() => toggleFav(st)} hitSlop={8}>
-                <Ionicons name={favId === st.id ? 'star' : 'star-outline'} size={18} color="#ECC052" />
+                <Ionicons name={favId === st.id ? 'star' : 'star-outline'} size={18} color={C.accent} />
               </Pressable>
             ) : null}
-            <Text style={[s.rowT, { marginTop: 10 }]} numberOfLines={1}>{st.name}</Text>
-            <Text style={s.rowSub} numberOfLines={2}>
+            <Text style={s.barberName} numberOfLines={1}>{st.name}</Text>
+            <Text style={s.prodDesc} numberOfLines={2}>
               {st.staff_salons.map((x: any) => x.salons.name).join(', ')}
             </Text>
           </Pressable>
@@ -2139,17 +2144,18 @@ function Loyalty({ uid, onBalance, between }: { uid: string; onBalance?: (n: num
 
   return (
     <View>
-      <LinearGradient colors={[C.loyA, C.loyB]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.loyHero}>
+      <View style={s.loyHero}>
+        <Brackets size={16} inset={9} />
         <View style={s.heroTop}>
-          <Text style={s.heroLabel}>CARTA FEDELTÀ</Text>
-          <Ionicons name="ribbon" size={22} color={C.accentText} />
+          <Text style={s.heroLabel}>Carta fedeltà</Text>
+          <Ionicons name="ribbon-outline" size={22} color={C.accentText} />
         </View>
         <Text style={s.heroNum}>{balance}<Text style={s.heroOf}> / {need}</Text></Text>
         <Text style={s.rowSub}>punti accumulati</Text>
         <View style={s.stamps}>
           {Array.from({ length: 10 }, (_, i) => (
             <View key={i} style={[s.stamp, i < Math.floor(pct * 10 + 0.0001) && s.stampOn]}>
-              {i < Math.floor(pct * 10 + 0.0001) && <Ionicons name="cut" size={13} color="#000" />}
+              {i < Math.floor(pct * 10 + 0.0001) && <Ionicons name="cut" size={13} color={C.onAccent} />}
             </View>
           ))}
         </View>
@@ -2167,7 +2173,7 @@ function Loyalty({ uid, onBalance, between }: { uid: string; onBalance?: (n: num
             Hai {open === 1 ? 'un premio attivo' : `${open} premi attivi`}: mostralo al barbiere al prossimo appuntamento.
           </Text>
         )}
-      </LinearGradient>
+      </View>
 
       {between}
 
@@ -2349,6 +2355,8 @@ function Profile({ session }: { session: Session }) {
 
   return (
     <ScrollView contentContainerStyle={s.pad} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
+      <PageTitle eyebrow="01 · Il tuo spazio" t="Il tuo profilo" />
+      <View style={{ height: 18 }} />
       <Loyalty uid={uid} between={below} />
     </ScrollView>
   );
@@ -2420,7 +2428,7 @@ function MapCard({ address, lat, lng, onLocated }: { address: string; lat?: numb
 
   return (
     <Pressable onPress={() => openUrl(mapsSearch(address))} style={s.mapBox} onLayout={(e) => setW(Math.round(e.nativeEvent.layout.width))}>
-      <LinearGradient colors={[C.mapA, C.mapB]} style={StyleSheet.absoluteFill} />
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: C.mapA }]} />
       {tiles.length > 0 && bad <= tiles.length / 2 ? (
         <>
           <View pointerEvents="none" style={StyleSheet.absoluteFill}>
@@ -2448,10 +2456,10 @@ function MapCard({ address, lat, lng, onLocated }: { address: string; lat?: numb
         </View>
       )}
       <View style={s.mapTag} pointerEvents="none">
-        <Glass radius={16} style={{ paddingHorizontal: 12, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        <Panel style={{ paddingHorizontal: 12, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
           <Ionicons name="navigate" size={14} color={C.accentText} />
           <Text style={s.mapTagT}>Apri in Google Maps</Text>
-        </Glass>
+        </Panel>
       </View>
     </Pressable>
   );
@@ -2547,8 +2555,8 @@ function Contacts({ uid, canPrefer, canEdit }: { uid?: string; canPrefer: boolea
   if (!sel) {
     return loaded ? (
       <ScrollView contentContainerStyle={s.pad}>
-        <Text style={s.h1}>Contatti</Text>
-        <Text style={s.muted}>Nessuna sede disponibile al momento.</Text>
+        <PageTitle eyebrow="01 · Sedi" t="I nostri contatti" />
+        <Text style={[s.muted, { marginTop: 14 }]}>Nessuna sede disponibile al momento.</Text>
       </ScrollView>
     ) : (
       <ActivityIndicator style={{ marginTop: 80 }} color={C.accentText} />
@@ -2557,14 +2565,15 @@ function Contacts({ uid, canPrefer, canEdit }: { uid?: string; canPrefer: boolea
 
   return (
     <ScrollView contentContainerStyle={[s.pad, { paddingBottom: 90 }]} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
-      <Text style={s.h1}>Contatti</Text>
-      <View style={[s.wrap, { marginTop: 10 }]}>
+      <PageTitle eyebrow="01 · Le nostre sedi" t="I nostri contatti" />
+      <View style={[s.wrap, { marginTop: 14 }]}>
         {ordered.map((x) => (
           <Chip key={x.id} label={`${x.id === prefId ? '★ ' : ''}${x.name}`} on={x.id === selId} onPress={() => setSelId(x.id)} />
         ))}
       </View>
 
       <View style={[s.card, { marginTop: 16 }]}>
+        <Brackets size={14} inset={8} />
         <Text style={s.h2}>{sel.name}</Text>
         <View style={s.infoRow}>
           <Ionicons name="location-outline" size={18} color={C.accentText} />
@@ -2598,22 +2607,22 @@ function Contacts({ uid, canPrefer, canEdit }: { uid?: string; canPrefer: boolea
 
       <View style={s.actRow}>
         <Pressable style={{ flex: 1 }} onPress={() => (sel.phone ? openUrl(telUrl(sel.phone)) : need('di telefono'))}>
-          <Glass radius={20} style={s.actBtn}>
+          <Panel style={s.actBtn}>
             <Ionicons name="call" size={24} color={C.accentText} />
             <Text style={s.actT}>Chiama</Text>
-          </Glass>
+          </Panel>
         </Pressable>
         <Pressable style={{ flex: 1 }} onPress={() => (sel.whatsapp ? openUrl(waUrl(sel.whatsapp)) : need('WhatsApp'))}>
-          <Glass radius={20} style={s.actBtn}>
-            <Ionicons name="logo-whatsapp" size={24} color="#25D366" />
+          <Panel style={s.actBtn}>
+            <Ionicons name="logo-whatsapp" size={24} color={C.accentText} />
             <Text style={s.actT}>WhatsApp</Text>
-          </Glass>
+          </Panel>
         </Pressable>
         <Pressable style={{ flex: 1 }} onPress={() => (sel.address ? openUrl(mapsRoute(sel.address)) : need('di indirizzo'))}>
-          <Glass radius={20} style={s.actBtn}>
+          <Panel style={s.actBtn}>
             <Ionicons name="navigate" size={24} color={C.accentText} />
             <Text style={s.actT}>Navigazione</Text>
-          </Glass>
+          </Panel>
         </Pressable>
       </View>
 
@@ -2708,15 +2717,16 @@ function ControlRoom() {
   if (failed) {
     return (
       <ScrollView contentContainerStyle={s.pad}>
-        <Text style={s.h1}>Control room</Text>
-        <Text style={s.muted}>Dati non disponibili. Controlla di aver eseguito la migrazione v2 nel database e di essere entrato come titolare.</Text>
+        <PageTitle eyebrow="Area titolare" t="Control room" />
+        <Text style={[s.muted, { marginTop: 14 }]}>Dati non disponibili. Controlla di aver eseguito la migrazione v2 nel database e di essere entrato come titolare.</Text>
       </ScrollView>
     );
   }
   if (!d) {
     return (
       <ScrollView contentContainerStyle={s.pad}>
-        <Text style={s.h1}>Control room</Text>
+        <PageTitle eyebrow="Area titolare" t="Control room" />
+        <View style={{ height: 14 }} />
         {periods}
         <ActivityIndicator style={{ marginTop: 60 }} color={C.accentText} />
       </ScrollView>
@@ -2733,11 +2743,13 @@ function ControlRoom() {
 
   return (
     <ScrollView contentContainerStyle={s.pad}>
-      <Text style={s.h1}>Control room</Text>
+      <PageTitle eyebrow="Area titolare" t="Control room" />
+      <View style={{ height: 14 }} />
       {periods}
 
-      <LinearGradient colors={[C.loyA, C.loyB]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[s.loyHero, { marginTop: 18 }]}>
-        <Text style={s.heroLabel}>INCASSO TOTALE, ULTIMI {days} GIORNI</Text>
+      <View style={[s.loyHero, { marginTop: 18 }]}>
+        <Brackets size={16} inset={9} />
+        <Text style={s.heroLabel}>Incasso totale, ultimi {days} giorni</Text>
         <Text style={[s.heroNum, { marginTop: 8 }]}>{eur(total)}</Text>
         <Text style={s.rowSub}>
           {cuts} servizi completati{best ? `, giorno migliore ${new Date(`${best.day}T12:00:00`).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })} (${eur(best.revenue)})` : ''}
@@ -2746,11 +2758,11 @@ function ControlRoom() {
           <View style={s.kpi}><Text style={s.kpiBig}>{eur(servicesTot)}</Text><Text style={s.rowSub}>Servizi</Text></View>
           <View style={s.kpi}><Text style={s.kpiBig}>{eur(shopTot)}</Text><Text style={s.rowSub}>Shop</Text></View>
         </View>
-      </LinearGradient>
+      </View>
 
       <Title t="Incasso per sede" />
       <View style={[s.wrap, { marginBottom: 12 }]}>
-        <Text style={s.rowSub}>● Servizi</Text>
+        <Text style={[s.rowSub, { color: C.accentText }]}>● Servizi</Text>
         <Text style={[s.rowSub, { color: C.series2 }]}>● Shop</Text>
       </View>
       {d.salons.map((x: any) => (
@@ -2803,8 +2815,8 @@ function More({ owner, go }: { owner: boolean; go: (t: Tab) => void }) {
   ];
   return (
     <ScrollView contentContainerStyle={s.pad}>
-      <Text style={s.h1}>Altro</Text>
-      <View style={{ marginTop: 14 }}>
+      <PageTitle eyebrow="Gestione" t="Altro" />
+      <View style={{ marginTop: 18 }}>
         {items.map(([id, title, icon, sub]) => (
           <Pressable key={id} style={s.row} onPress={() => go(id)}>
             <View style={s.menuIcon}><Ionicons name={icon as any} size={22} color={C.accentText} /></View>
@@ -2833,6 +2845,7 @@ export default function App() {
   const [key, setKey] = useState(0);
   const [cart, setCart] = useState<Cart>({});
   const uid = session?.user.id;
+  const fontsReady = useBrandFont(); // titoli e frasi in corsivo: si disegna solo a caratteri pronti, senza "salti"
 
   // Tema: sul telefono segue il sistema; sul web conta anche la scelta fatta nell'app. Va deciso prima di disegnare le schermate.
   const system = useColorScheme();
@@ -2892,7 +2905,7 @@ export default function App() {
     }
   }, [uid]);
 
-  if (!ready) return <View style={s.root}><ActivityIndicator style={{ marginTop: 120 }} color={C.ink} /></View>;
+  if (!ready || !fontsReady) return <View style={s.root}><ActivityIndicator style={{ marginTop: 120 }} color={C.accentText} /></View>;
 
   const owner = staff?.salonIds === null;
   const tabs: [Tab, string, string][] = staff
@@ -2947,20 +2960,20 @@ export default function App() {
             {tab === 'more' && staff && <More owner={owner} go={setTab} />}
           </Appear>
           <View style={s.tabWrap}>
-            <LinearGradient colors={[C.bg, C.tabEnd]} style={StyleSheet.absoluteFill} />
-            <Glass radius={30} style={s.tabbar}>
+            <View style={s.tabbar}>
               {tabs.map(([id, label, icon]) => {
                 const on = active === id;
                 return (
-                  <Pressable key={id} style={s.tabItem} onPress={() => setTab(id)}>
-                    <View style={[s.tabPill, on && s.tabPillOn]}>
-                      <Ionicons name={icon as any} size={22} color={on ? C.accentText : C.muted} />
-                      <Text numberOfLines={1} style={[s.tabLabel, on && { color: C.accentText }]}>{label}</Text>
+                  <Pressable key={id} style={s.tabItem} onPress={() => setTab(id)} accessibilityRole="tab" accessibilityState={{ selected: on }} accessibilityLabel={label}>
+                    <View style={[s.tabLine, on && s.tabLineOn]} />
+                    <View style={s.tabPill}>
+                      <Ionicons name={icon as any} size={21} color={on ? C.accentText : C.muted} />
+                      <Text numberOfLines={1} allowFontScaling={false} style={[s.tabLabel, on && { color: C.accentText }]}>{label}</Text>
                     </View>
                   </Pressable>
                 );
               })}
-            </Glass>
+            </View>
           </View>
 
           <Modal visible={menu && !staff} transparent animationType="fade" onRequestClose={() => setMenu(false)}>
@@ -2991,115 +3004,144 @@ export default function App() {
 }
 
 function makeStyles() {
+  const hair = { borderWidth: 1, borderColor: C.line } as const;
   return StyleSheet.create({
   root: { flex: 1, backgroundColor: C.bg },
   pad: { padding: 20, paddingBottom: 40 },
-  h1: { fontSize: 30, fontWeight: '800', color: C.text, letterSpacing: -0.8, marginBottom: 6 },
-  h2: { fontSize: 18, fontWeight: '700', color: C.text, letterSpacing: -0.2 },
+  h1: { ...disp(44, 1), color: C.text, marginBottom: 10 },
+  h2: { ...disp(26, 0.8), color: C.text },
   muted: { color: C.muted, fontSize: 15, lineHeight: 22 },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
 
-  headerWrap: { borderBottomWidth: 1, borderBottomColor: C.line },
+  // Etichette, titoli e filetti (il linguaggio del sito)
+  eyebrowRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
+  eyebrowLine: { width: 28, height: 1, backgroundColor: C.accentLine2 },
+  eyebrow: { ...lab(11, 2.8), color: C.accentText },
+  rule: { width: 44, height: 1, backgroundColor: C.accentBorder, marginBottom: 14 },
+  lead: { ...ital(19), color: C.muted, lineHeight: 26 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 30, marginBottom: 12 },
+  titleLine: { flex: 1, height: 1, backgroundColor: C.line },
+
+  // Testata
+  headerWrap: { borderBottomWidth: 1, borderBottomColor: C.line, backgroundColor: C.bg },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 10 },
-  logoPill: { paddingHorizontal: 16, paddingVertical: 9, alignItems: 'center', justifyContent: 'center' },
-  headerLogo: { width: 132, height: 20 },
-  logoutBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  brand: { color: C.text, fontSize: 18, fontWeight: '800', letterSpacing: 0.3 },
-  brandBig: { color: C.text, fontSize: 26, fontWeight: '800', letterSpacing: 0.5, marginTop: 16 },
+  headDiv: { width: 1, height: 30, backgroundColor: C.line },
+  headT: { ...disp(21, 1), color: C.text },
+  headSub: { ...lab(9.5, 2.2), color: C.muted, marginTop: 1 },
+  logoutBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', ...hair },
   back: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingTop: 10 },
-  backT: { color: C.accentText, fontSize: 16, fontWeight: '700' },
+  backT: { ...lab(12, 1.8), color: C.accentText, fontWeight: '700' },
 
-  stepRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 30, marginBottom: 12 },
-  stepNum: { width: 26, height: 26, borderRadius: 13, borderWidth: 1.5, borderColor: C.line, alignItems: 'center', justifyContent: 'center' },
-  stepNumOn: { backgroundColor: C.accent, borderColor: C.accentBorder },
-  stepNumT: { color: C.muted, fontSize: 13, fontWeight: '800' },
+  // Passi della prenotazione: "01 · Sede"
+  stepRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 30, marginBottom: 12 },
+  stepNum: { minWidth: 32, height: 26, paddingHorizontal: 4, borderWidth: 1, borderColor: C.accentLine2, alignItems: 'center', justifyContent: 'center' },
+  stepNumOn: { backgroundColor: C.accent, borderColor: C.accent },
+  stepNumT: { ...lab(12, 1), color: C.accentText, fontWeight: '700' },
 
-  chip: { backgroundColor: C.card2, borderRadius: 14, borderWidth: 1, borderColor: C.line, paddingVertical: 11, paddingHorizontal: 16 },
-  chipOn: { backgroundColor: C.accent, borderColor: C.accentBorder },
-  chipT: { fontSize: 16, fontWeight: '600', color: C.text },
-  chipSub: { fontSize: 13, color: C.muted, marginTop: 2 },
-  onT: { color: '#000000' },
+  chip: { backgroundColor: C.card, borderWidth: 1, borderColor: C.line, paddingVertical: 11, paddingHorizontal: 16 },
+  chipOn: { backgroundColor: C.accent, borderColor: C.accent },
+  chipT: { fontSize: 12.5, fontWeight: '700', letterSpacing: 1.1, textTransform: 'uppercase', color: C.text },
+  chipSub: { fontSize: 12.5, color: C.muted, marginTop: 2 },
+  onT: { color: C.onAccent },
 
-  cat: { color: C.muted, fontSize: 12, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8, marginTop: 4 },
-  row: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.card, borderRadius: 18, borderWidth: 1, borderColor: C.line, padding: 15, marginBottom: 10 },
+  cat: { ...lab(11, 2.2), color: C.muted, marginBottom: 8, marginTop: 4 },
+  row: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.card, ...hair, padding: 15, marginBottom: 10 },
   rowOn: { borderColor: C.accentBorder, backgroundColor: C.accentSoft },
   rowT: { color: C.text, fontSize: 16, fontWeight: '700' },
   rowSub: { color: C.muted, fontSize: 13, marginTop: 2, lineHeight: 18 },
-  price: { color: C.accentText, fontSize: 16, fontWeight: '800' },
+  price: { ...disp(25, 0.6), color: C.accentText },
 
-  dayTile: { width: 64, alignItems: 'center', paddingVertical: 11, borderRadius: 16, borderWidth: 1, borderColor: C.line, backgroundColor: C.card2 },
-  dayW: { color: C.muted, fontSize: 12, fontWeight: '600' },
-  dayN: { color: C.text, fontSize: 22, fontWeight: '800', marginVertical: 2 },
+  dayTile: { width: 64, alignItems: 'center', paddingVertical: 10, backgroundColor: C.card, ...hair },
+  dayW: { ...lab(10, 1.4), color: C.muted },
+  dayN: { ...disp(30, 0.5), color: C.text, marginVertical: 1 },
 
-  slot: { backgroundColor: C.card2, borderRadius: 14, borderWidth: 1, borderColor: C.line, width: 80, alignItems: 'center', paddingVertical: 13 },
-  slotT: { fontSize: 17, fontWeight: '700', color: C.text, fontVariant: ['tabular-nums'] },
+  slot: { backgroundColor: C.card, ...hair, width: 80, alignItems: 'center', paddingVertical: 13 },
+  slotT: { fontSize: 16, fontWeight: '700', color: C.text, fontVariant: ['tabular-nums'] },
 
-  btn: { backgroundColor: C.accent, borderRadius: 16, paddingVertical: 17, alignItems: 'center', marginTop: 16 },
-  btnT: { color: '#000000', fontSize: 17, fontWeight: '800', letterSpacing: 0.2 },
-  input: { backgroundColor: C.card2, borderRadius: 14, borderWidth: 1, borderColor: C.line, padding: 15, fontSize: 16, color: C.text, marginTop: 10 },
+  btn: { backgroundColor: C.accent, paddingVertical: 17, alignItems: 'center', marginTop: 16 },
+  btnT: { ...lab(14, 2.4), color: C.onAccent, fontWeight: '700' },
+  goT: { ...lab(13, 2.2), color: C.onAccent, fontWeight: '700' },
+  input: { backgroundColor: C.card, ...hair, padding: 15, fontSize: 16, color: C.text, marginTop: 10 },
 
-  tabWrap: { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 6, borderTopWidth: 1, borderTopColor: C.line },
-  tabbar: { flexDirection: 'row', padding: 5 },
+  // Barra delle schede: piatta, con filetto in alto e linea dorata sulla voce attiva
+  tabWrap: { borderTopWidth: 1, borderTopColor: C.line, backgroundColor: C.bg },
+  tabbar: { flexDirection: 'row' },
   tabItem: { flex: 1 },
-  tabPill: { alignItems: 'center', gap: 3, paddingVertical: 8, borderRadius: 22, borderWidth: 1, borderColor: 'transparent' },
-  tabPillOn: { backgroundColor: C.accentSoft, borderColor: C.accentLine },
-  tabLabel: { color: C.muted, fontSize: 10, fontWeight: '700' },
+  tabLine: { height: 2, backgroundColor: 'transparent', marginTop: -1 },
+  tabLineOn: { backgroundColor: C.accent },
+  tabPill: { alignItems: 'center', gap: 4, paddingTop: 9, paddingBottom: 8 },
+  tabLabel: { ...lab(9, 1), color: C.muted, fontWeight: '700' },
 
-  card: { backgroundColor: C.card, borderRadius: 20, borderWidth: 1, borderColor: C.line, padding: 16, marginBottom: 12 },
-  link: { fontSize: 15, fontWeight: '700', color: C.accentText, paddingVertical: 4, paddingRight: 14 },
-  badge: { width: 54, height: 60, borderRadius: 14, backgroundColor: C.accentSoft, alignItems: 'center', justifyContent: 'center' },
-  badgeN: { color: C.accentText, fontSize: 22, fontWeight: '800' },
-  badgeM: { color: C.accentText, fontSize: 12, fontWeight: '700' },
-  timeBig: { color: C.accentText, fontSize: 22, fontWeight: '800', fontVariant: ['tabular-nums'], minWidth: 62 },
+  card: { backgroundColor: C.card, ...hair, padding: 16, marginBottom: 12 },
+  link: { ...lab(12, 1.6), fontWeight: '700', color: C.accentText, paddingVertical: 4, paddingRight: 14 },
+  badge: { width: 54, height: 60, backgroundColor: C.accentSoft, borderWidth: 1, borderColor: C.accentLine, alignItems: 'center', justifyContent: 'center' },
+  badgeN: { ...disp(30, 0.5), color: C.accentText, lineHeight: 32 },
+  badgeM: { ...lab(10.5, 1.6), color: C.accentText, fontWeight: '700' },
+  timeBig: { ...disp(32, 0.6), color: C.accentText, fontVariant: ['tabular-nums'], minWidth: 70 },
 
+  // Shop
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 14, marginTop: 18 },
-  product: { width: '48%', backgroundColor: C.card, borderRadius: 22, borderWidth: 1, borderColor: C.line, padding: 12 },
-  productIcon: { height: 96, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
-  productIconBig: { height: 130, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
-  productImg: { width: '100%', aspectRatio: 1, borderRadius: 16, backgroundColor: '#F4F0E6', marginBottom: 12 },
-  productImgBig: { width: '100%', height: 200, borderRadius: 20, backgroundColor: '#F4F0E6', marginBottom: 16 },
-  cartImg: { width: 44, height: 44, borderRadius: 10, backgroundColor: '#F4F0E6', marginRight: 12 },
+  product: { width: '48.5%', backgroundColor: C.card, ...hair, padding: 10, paddingBottom: 12 },
+  productTile: { aspectRatio: 1, backgroundColor: C.tileA, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+  productTileBig: { height: 220, backgroundColor: C.tileA, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+  productImg: { width: '88%', height: '88%' },
+  productImgBig: { width: '88%', height: '88%' },
+  prodName: { color: C.text, fontSize: 14, fontWeight: '700', lineHeight: 19, letterSpacing: 0.2 },
+  prodDesc: { ...ital(15), color: C.muted, marginTop: 1 },
+  cartImg: { width: 44, height: 44, backgroundColor: C.tileA, marginRight: 12 },
   productFoot: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 },
-  plus: { width: 34, height: 34, borderRadius: 17, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center' },
-  cartBar: { position: 'absolute', left: 16, right: 16, bottom: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: C.accent, borderRadius: 18, paddingVertical: 16, paddingHorizontal: 20 },
-  cartT: { color: '#000000', fontSize: 16, fontWeight: '800' },
+  plus: { width: 32, height: 32, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center' },
+  cartBar: { position: 'absolute', left: 16, right: 16, bottom: 16, flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: C.accent, paddingVertical: 16, paddingHorizontal: 18 },
+  cartT: { ...lab(13, 1.8), color: C.onAccent, fontWeight: '700' },
   backdrop: { flex: 1, backgroundColor: C.scrim },
-  sheet: { backgroundColor: C.card, borderTopLeftRadius: 28, borderTopRightRadius: 28, borderWidth: 1, borderColor: C.line, padding: 22, paddingBottom: 34 },
-  qtyBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: C.card2, borderWidth: 1, borderColor: C.line, alignItems: 'center', justifyContent: 'center', marginLeft: 8 },
+  sheet: { backgroundColor: C.card, borderTopWidth: 1, borderLeftWidth: 1, borderRightWidth: 1, borderColor: C.accentLine2, padding: 22, paddingBottom: 34 },
+  qtyBtn: { width: 32, height: 32, backgroundColor: C.card2, ...hair, alignItems: 'center', justifyContent: 'center', marginLeft: 8 },
   qtyT: { color: C.text, fontSize: 16, fontWeight: '800', minWidth: 22, textAlign: 'center', marginLeft: 8 },
 
-  barber: { width: '48%' },
-  barberPhoto: { width: '100%', aspectRatio: 1, borderRadius: 22, backgroundColor: C.card2 },
-  camera: { position: 'absolute', top: 10, right: 10, width: 30, height: 30, borderRadius: 15, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center' },
-  menuIcon: { width: 42, height: 42, borderRadius: 14, backgroundColor: C.accentSoft, alignItems: 'center', justifyContent: 'center' },
+  // Barbieri
+  barber: { width: '48.5%' },
+  barberPhoto: { width: '100%', aspectRatio: 1, backgroundColor: C.card2, ...hair },
+  barberName: { ...disp(23, 0.8), color: C.text, marginTop: 10 },
+  camera: { position: 'absolute', top: 8, right: 8, width: 28, height: 28, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center' },
+  menuIcon: { width: 42, height: 42, backgroundColor: C.accentSoft, borderWidth: 1, borderColor: C.accentLine, alignItems: 'center', justifyContent: 'center' },
 
-  loyHero: { borderRadius: 26, borderWidth: 1, borderColor: C.accentBorder, padding: 20, overflow: 'hidden' },
+  // Carta fedeltà e incassi
+  loyHero: { backgroundColor: C.loyA, borderWidth: 1, borderColor: C.accentLine, padding: 22 },
   heroTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  heroLabel: { color: C.accentText, fontSize: 12, fontWeight: '800', letterSpacing: 1.6 },
-  heroNum: { color: C.text, fontSize: 52, fontWeight: '800', letterSpacing: -1.5, marginTop: 10 },
-  heroOf: { color: C.muted, fontSize: 24, fontWeight: '600', letterSpacing: 0 },
+  heroLabel: { ...lab(11, 2.6), color: C.accentText },
+  heroNum: { ...disp(68, 1), color: C.text, marginTop: 10 },
+  heroOf: { ...disp(30, 0.5), color: C.muted },
   stamps: { flexDirection: 'row', gap: 6, marginTop: 18, marginBottom: 14 },
-  stamp: { flex: 1, aspectRatio: 1, borderRadius: 99, borderWidth: 1.5, borderColor: C.line, alignItems: 'center', justifyContent: 'center' },
-  stampOn: { backgroundColor: C.accent, borderColor: C.accentBorder },
-  track: { height: 8, borderRadius: 4, backgroundColor: C.card2, flexDirection: 'row', overflow: 'hidden' },
-  fill: { height: 8, backgroundColor: C.accent },
+  stamp: { flex: 1, aspectRatio: 1, borderWidth: 1, borderColor: C.accentLine, alignItems: 'center', justifyContent: 'center' },
+  stampOn: { backgroundColor: C.accent, borderColor: C.accent },
+  track: { height: 5, backgroundColor: C.line, flexDirection: 'row', overflow: 'hidden' },
+  fill: { height: 5, backgroundColor: C.accent },
   barHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
 
-  kpi: { backgroundColor: C.card2, borderRadius: 16, borderWidth: 1, borderColor: C.line, paddingVertical: 12, paddingHorizontal: 16, minWidth: 104 },
-  kpiBig: { color: C.text, fontSize: 22, fontWeight: '800', letterSpacing: -0.4 },
+  kpi: { backgroundColor: C.card, ...hair, paddingVertical: 12, paddingHorizontal: 16, minWidth: 104 },
+  kpiBig: { ...disp(30, 0.5), color: C.text },
   cols: { flexDirection: 'row', alignItems: 'flex-end', height: 124, gap: 2 },
   colWrap: { flex: 1, justifyContent: 'flex-end' },
-  col: { backgroundColor: C.accent, borderTopLeftRadius: 3, borderTopRightRadius: 3 },
+  col: { backgroundColor: C.accent },
 
-  // Pagina iniziale e accesso
-  welcome: { flex: 1, backgroundColor: C.bg, paddingHorizontal: 28 },
-  welGlowSm: { position: 'absolute', top: 40, width: 190, height: 190, borderRadius: 95, backgroundColor: 'rgba(236,192,82,0.14)', shadowColor: C.accent, shadowOpacity: 0.5, shadowRadius: 50, shadowOffset: { width: 0, height: 0 } },
+  // Pagina iniziale (sempre su foto scura, come sul sito) e accesso
+  welcome: { flex: 1, backgroundColor: '#0C0C0C', paddingHorizontal: 28 },
+  welBrand: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: 18 },
+  welLine: { width: 56, height: 1, backgroundColor: C.welLine, marginTop: 20 },
+  welSub: { ...ital(24), color: '#F4F1E8', textAlign: 'center', marginTop: 18 },
+  welSub2: { color: 'rgba(244,241,232,0.72)', fontSize: 14, lineHeight: 21, textAlign: 'center', marginTop: 10, maxWidth: 290 },
+  welActions: { width: '100%', maxWidth: 420, alignSelf: 'center', gap: 12 },
+  welPrimary: { height: 56, flexDirection: 'row', gap: 12, backgroundColor: '#C4A868', alignItems: 'center', justifyContent: 'center' },
+  welPrimaryT: { ...lab(14, 2.8), color: '#14110D', fontWeight: '700' },
+  welGhost: { height: 56, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(196,168,104,0.7)' },
+  welGhostT: { ...lab(14, 2.8), color: '#C4A868', fontWeight: '700' },
 
   authPad: { paddingHorizontal: 24 },
   authBack: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', marginLeft: -6, paddingVertical: 6 },
-  authMini: { width: 84, height: 84, marginTop: 10, marginBottom: 14 },
-  fieldLabel: { color: C.muted, fontSize: 12, fontWeight: '700', letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 6 },
-  fieldBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.card2, borderRadius: 14, borderWidth: 1, borderColor: C.line, paddingHorizontal: 14 },
+  authMini: { alignSelf: 'flex-start', marginTop: 14, marginBottom: 22 },
+  fieldLabel: { ...lab(10.5, 2), color: C.muted, fontWeight: '700', marginBottom: 6 },
+  fieldBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.card, ...hair, paddingHorizontal: 14 },
+  fieldFocus: { borderColor: C.accentBorder },
   fieldInput: { flex: 1, minWidth: 0, color: C.text, fontSize: 16, paddingVertical: 14 },
   fieldErr: { color: C.danger, fontSize: 12.5, marginTop: 5 },
   formErr: { color: C.danger, fontSize: 14, lineHeight: 20, marginTop: 14 },
@@ -3107,106 +3149,93 @@ function makeStyles() {
   // Conferma dopo la registrazione
   doneRoot: { flex: 1, backgroundColor: C.bg },
   doneBody: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 28 },
-  doneIcon: { width: 120, height: 120, alignItems: 'center', justifyContent: 'center', marginBottom: 26 },
-  doneKicker: { color: C.accentText, fontSize: 12, fontWeight: '800', letterSpacing: 2 },
-  doneTitle: { color: C.text, fontSize: 36, textAlign: 'center', marginTop: 10, marginBottom: 14 },
+  doneIcon: { width: 112, height: 112, alignItems: 'center', justifyContent: 'center', marginBottom: 26 },
+  doneKicker: { ...lab(11, 3), color: C.accentText },
+  doneTitle: { ...disp(52, 1), color: C.text, textAlign: 'center', marginTop: 12, marginBottom: 14 },
   doneSub: { color: C.muted, fontSize: 16, lineHeight: 24, textAlign: 'center' },
   doneMail: { color: C.accentText, fontSize: 17, fontWeight: '800', textAlign: 'center', marginVertical: 6 },
   doneBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 16 },
-  doneBtnT: { color: C.text, fontSize: 16, fontWeight: '800' },
+  doneBtnT: { ...lab(13, 2), color: C.text, fontWeight: '700' },
 
   // Prenotazione: barbieri e barra in basso
   pickRow: { paddingHorizontal: 20, gap: 12, paddingBottom: 4 },
-  bCard: { width: 116, alignItems: 'center', padding: 10, borderRadius: 22, borderWidth: 1, borderColor: C.line, backgroundColor: C.card },
+  pickRowCard: { paddingHorizontal: 16, gap: 12 },
+  bCard: { width: 116, alignItems: 'center', padding: 10, backgroundColor: C.card, ...hair },
   bCardOn: { borderColor: C.accentBorder, backgroundColor: C.accentSoft },
-  bPhoto: { width: 92, height: 92, borderRadius: 46, backgroundColor: C.card2 },
-  bIni: { color: C.accentText, fontSize: 30, fontWeight: '800' },
-  bCheck: { position: 'absolute', right: -2, bottom: -2, width: 24, height: 24, borderRadius: 12, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: C.bg },
-  bName: { color: C.text, fontSize: 14, fontWeight: '700', textAlign: 'center', marginTop: 10, minHeight: 36 },
+  bPhoto: { width: 94, height: 94, backgroundColor: C.card2, ...hair },
+  bIni: { ...disp(40, 1), color: C.accentText },
+  bCheck: { position: 'absolute', right: -6, bottom: -6, width: 22, height: 22, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: C.bg },
+  bFav: { position: 'absolute', left: -6, top: -6, width: 20, height: 20, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: C.bg },
+  bName: { ...lab(11, 1), color: C.text, fontWeight: '700', textAlign: 'center', marginTop: 10, minHeight: 32, lineHeight: 16 },
   hisHead: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 },
-  hisKicker: { color: C.accentText, fontSize: 11, fontWeight: '800', letterSpacing: 1.6, marginBottom: 2 },
+  hisKicker: { ...lab(10, 2.4), color: C.accentText, marginBottom: 2 },
   hisStats: { flexDirection: 'row', gap: 10 },
-  hisTile: { flex: 1, backgroundColor: C.card, borderRadius: 18, borderWidth: 1, borderColor: C.line, paddingVertical: 14, paddingHorizontal: 10, alignItems: 'center' },
-  hisNum: { color: C.text, fontSize: 22, fontWeight: '800', letterSpacing: -0.4 },
-  hisLbl: { color: C.muted, fontSize: 11, fontWeight: '600', marginTop: 3, textAlign: 'center' },
-  hisSection: { color: C.muted, fontSize: 12, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase', marginTop: 18, marginBottom: 8 },
-  hisRow: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: C.card, borderRadius: 18, borderWidth: 1, borderColor: C.line, padding: 12, marginBottom: 8 },
-  hisDate: { width: 48, height: 52, borderRadius: 13, backgroundColor: C.accentSoft, alignItems: 'center', justifyContent: 'center' },
-  hisDay: { color: C.accentText, fontSize: 19, fontWeight: '800', lineHeight: 22 },
-  hisMon: { color: C.accentText, fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
+  hisTile: { flex: 1, backgroundColor: C.card, ...hair, paddingVertical: 14, paddingHorizontal: 10, alignItems: 'center' },
+  hisNum: { ...disp(32, 0.5), color: C.text },
+  hisLbl: { ...lab(9.5, 1.4), color: C.muted, marginTop: 3, textAlign: 'center' },
+  hisSection: { ...lab(11, 2.2), color: C.muted, marginTop: 18, marginBottom: 8 },
+  hisRow: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: C.card, ...hair, padding: 12, marginBottom: 8 },
+  hisDate: { width: 48, height: 52, backgroundColor: C.accentSoft, borderWidth: 1, borderColor: C.accentLine, alignItems: 'center', justifyContent: 'center' },
+  hisDay: { ...disp(26, 0.4), color: C.accentText, lineHeight: 28 },
+  hisMon: { ...lab(10, 1.2), color: C.accentText, fontWeight: '700' },
   hisState: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  hisTag: { fontSize: 12, fontWeight: '700' },
-  hisEmpty: { alignItems: 'center', backgroundColor: C.card, borderRadius: 20, borderWidth: 1, borderColor: C.line, paddingVertical: 24, paddingHorizontal: 22 },
-  bookBar: { position: 'absolute', left: 14, right: 14, bottom: 12, flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: C.card, borderRadius: 22, borderWidth: 1, borderColor: C.accentBorder, padding: 12, paddingLeft: 16, shadowColor: C.shadow, shadowOpacity: C.shadowO, shadowRadius: 16, shadowOffset: { width: 0, height: 6 } },
-  bookGo: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.accent, borderRadius: 16, paddingVertical: 14, paddingHorizontal: 20 },
+  hisTag: { ...lab(10, 1.2), fontWeight: '700' },
+  hisEmpty: { alignItems: 'center', backgroundColor: C.card, ...hair, paddingVertical: 24, paddingHorizontal: 22 },
+  bookBar: { position: 'absolute', left: 14, right: 14, bottom: 12, flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: C.card, borderWidth: 1, borderColor: C.accentLine2, padding: 12, paddingLeft: 16, shadowColor: C.shadow, shadowOpacity: C.shadowO, shadowRadius: 16, shadowOffset: { width: 0, height: 6 } },
+  bookGo: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.accent, paddingVertical: 14, paddingHorizontal: 18 },
 
   // Pagina del calendario
   calRoot: { flex: 1, backgroundColor: C.bg },
-  calTop: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, paddingBottom: 10 },
-  calTitle: { color: C.text, fontSize: 26 },
+  calTop: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, paddingBottom: 12 },
+  calTitle: { ...disp(40, 1), color: C.text },
   calBody: { padding: 16, paddingBottom: 30 },
-  calCard: { backgroundColor: C.calCard, borderRadius: 28, borderWidth: 1, borderColor: C.accentLine, padding: 14, shadowColor: C.accent, shadowOpacity: 0.18, shadowRadius: 24, shadowOffset: { width: 0, height: 8 } },
+  calCard: { backgroundColor: C.calCard, ...hair, padding: 16 },
   calHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
-  calArrow: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center' },
-  calMonth: { color: C.text, fontSize: 28, lineHeight: 34 },
-  calYear: { color: C.accentText, fontSize: 12, fontWeight: '800', letterSpacing: 2 },
+  calArrow: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center', ...hair },
+  calMonth: { ...disp(36, 1), color: C.text, lineHeight: 38 },
+  calYear: { ...lab(11, 3.2), color: C.accentText, fontWeight: '700' },
   calGrid: { flexDirection: 'row', flexWrap: 'wrap' },
   calCellHead: { width: '14.28%', alignItems: 'center', paddingVertical: 8 },
-  calWeekT: { color: C.muted, fontSize: 12, fontWeight: '800' },
-  calCell: { width: '14.28%', aspectRatio: 1, alignItems: 'center', justifyContent: 'center', padding: 3 },
-  calDay: { width: '100%', height: '100%', borderRadius: 99, alignItems: 'center', justifyContent: 'center' },
-  calToday: { borderWidth: 1.5, borderColor: C.accentLine2 },
-  calSel: { backgroundColor: C.accent, shadowColor: C.accent, shadowOpacity: 0.6, shadowRadius: 12, shadowOffset: { width: 0, height: 0 } },
-  calNum: { color: C.text, fontSize: 16, fontWeight: '700' },
+  calWeekT: { ...lab(10.5, 1.2), color: C.muted, fontWeight: '700' },
+  calCell: { width: '14.28%', aspectRatio: 1, alignItems: 'center', justifyContent: 'center', padding: 2 },
+  calDay: { width: '100%', height: '100%', borderWidth: 1, borderColor: 'transparent', alignItems: 'center', justifyContent: 'center' },
+  calToday: { borderColor: C.accentLine2 },
+  calSel: { backgroundColor: C.accent, borderColor: C.accent },
+  calNum: { color: C.text, fontSize: 16, fontWeight: '600' },
   calOff: { color: C.calOff, fontWeight: '500' },
-  calDot: { position: 'absolute', bottom: 3, width: 4, height: 4, borderRadius: 2, backgroundColor: C.accent },
-  calDot2: { width: 6, height: 6, borderRadius: 3, backgroundColor: C.accent, marginRight: 8 },
+  calDot: { position: 'absolute', bottom: 5, width: 4, height: 4, backgroundColor: C.accent },
+  calDot2: { width: 6, height: 6, backgroundColor: C.accent, marginRight: 8 },
   calLegend: { flexDirection: 'row', alignItems: 'center', marginTop: 8, paddingHorizontal: 4 },
-  calSlotsTitle: { color: C.text, fontSize: 20, fontWeight: '800', letterSpacing: -0.3, marginTop: 26, marginBottom: 12 },
+  calSlotsTitle: { ...disp(30, 1), color: C.text, marginTop: 26, marginBottom: 12 },
   calBar: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 18, paddingTop: 12, borderTopWidth: 1, borderTopColor: C.line, backgroundColor: C.calBar },
 
   // Profilo
-  profName: { color: C.text, fontSize: 21, fontWeight: '800', letterSpacing: -0.4 },
+  profName: { ...disp(28, 0.8), color: C.text },
+  profRow: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 8 },
 
   // Contatti
   infoRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12 },
   infoT: { flex: 1, color: C.text, fontSize: 15, lineHeight: 21 },
-  prefBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 16, paddingVertical: 12, borderRadius: 14, borderWidth: 1, borderColor: C.accentLine2 },
-  prefBtnT: { color: C.accentText, fontSize: 15, fontWeight: '700' },
+  prefBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 16, paddingVertical: 12, borderWidth: 1, borderColor: C.accentLine2 },
+  prefBtnT: { ...lab(12, 1.6), color: C.accentText, fontWeight: '700' },
   actRow: { flexDirection: 'row', gap: 10 },
   actBtn: { alignItems: 'center', gap: 8, paddingVertical: 18 },
-  actT: { color: C.text, fontSize: 13, fontWeight: '800' },
+  actT: { ...lab(10.5, 1.6), color: C.text, fontWeight: '700' },
   openRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
-  openDot: { width: 10, height: 10, borderRadius: 5 },
+  openDot: { width: 9, height: 9, borderRadius: 5 },
   hoursRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: C.line },
   hoursDay: { color: C.text, fontSize: 15, fontWeight: '700' },
   hoursT: { color: C.text, fontSize: 15, fontVariant: ['tabular-nums'] },
 
-  // Pagina iniziale (nuova)
-  welBrand: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: 18 },
-  welMask: { alignSelf: 'stretch', overflow: 'hidden', paddingHorizontal: 14, justifyContent: 'center', alignItems: 'center' },
-  welTitle: { color: C.welTitle, textAlign: 'center' },
-  welLine: { width: 56, height: 1, backgroundColor: C.welLine, marginTop: 18 },
-  welSub: { color: C.muted, fontSize: 11, fontWeight: '600', letterSpacing: 3.2, marginTop: 16, textAlign: 'center' },
-  welActions: { width: '100%', maxWidth: 420, alignSelf: 'center', gap: 12 },
-  welPrimaryWrap: { borderRadius: 28, shadowColor: C.accent, shadowOpacity: 0.28, shadowRadius: 18, shadowOffset: { width: 0, height: 8 } },
-  welPrimary: { height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
-  welPrimaryT: { color: '#000000', fontSize: 16, fontWeight: '800', letterSpacing: 0.4 },
-  welGhost: { height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.accentLine, backgroundColor: C.welGhostBg },
-  welGhostT: { color: C.welTitle, fontSize: 16, fontWeight: '700', letterSpacing: 0.4 },
-
-  // Preferiti, profilo, mappa
-  bFav: { position: 'absolute', left: -2, top: -2, width: 22, height: 22, borderRadius: 11, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: C.bg },
-  favBtn: { position: 'absolute', top: 10, right: 10, width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(0,0,0,0.6)', borderWidth: 1, borderColor: 'rgba(236,192,82,0.5)', alignItems: 'center', justifyContent: 'center' },
-  pickRowCard: { paddingHorizontal: 16, gap: 12 },
-  profRow: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 8 },
-  mapBox: { height: MAP_H, borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: C.line },
+  // Preferiti, mappa
+  favBtn: { position: 'absolute', top: 8, right: 8, width: 32, height: 32, backgroundColor: 'rgba(12,12,12,0.72)', borderWidth: 1, borderColor: 'rgba(196,168,104,0.6)', alignItems: 'center', justifyContent: 'center' },
+  mapBox: { height: MAP_H, overflow: 'hidden', ...hair },
   mapFallback: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', padding: 20 },
   mapTag: { position: 'absolute', right: 10, bottom: 10 },
-  mapTagT: { color: C.text, fontSize: 13, fontWeight: '800' },
-  mapAttr: { position: 'absolute', left: 8, bottom: 6, color: 'rgba(248,244,234,0.7)', fontSize: 10, backgroundColor: 'rgba(0,0,0,0.45)', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4, overflow: 'hidden' },
+  mapTagT: { ...lab(10.5, 1.4), color: C.text, fontWeight: '700' },
+  mapAttr: { position: 'absolute', left: 8, bottom: 6, color: 'rgba(248,244,234,0.7)', fontSize: 10, backgroundColor: 'rgba(0,0,0,0.45)', paddingHorizontal: 5, paddingVertical: 1, overflow: 'hidden' },
   pinWrap: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
-  pinRing: { width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(236,192,82,0.28)', borderWidth: 1.5, borderColor: 'rgba(236,192,82,0.8)' },
+  pinRing: { width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(196,168,104,0.28)', borderWidth: 1.5, borderColor: 'rgba(196,168,104,0.8)' },
 });
 }
 let s = makeStyles();
