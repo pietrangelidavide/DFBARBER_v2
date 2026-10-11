@@ -312,6 +312,12 @@ const Step = ({ n, t, done }: { n: number; t: string; done?: boolean }) => (
   </View>
 );
 
+// Web su schermo largo (computer): menu laterale al posto della barra in basso e contenuto centrato.
+// Sul telefono e sul tablet (anche in orizzontale) resta la barra in basso.
+const DESK_MIN = 1100;
+const SIDE_W = 264;
+const useDesk = () => { const { width } = useWindowDimensions(); return Platform.OS === 'web' && width >= DESK_MIN; };
+
 function Header({ onLogout, onMenu }: { onLogout: () => void; onMenu?: () => void }) {
   return (
     <View style={s.headerWrap}>
@@ -381,6 +387,7 @@ function Slots({ slots, tz, selected, onPick }: { slots: any[]; tz: string; sele
 
 // ───────── Shop ─────────
 function Shop({ cart, setCart, canEdit }: { cart: Cart; setCart: (c: Cart) => void; canEdit?: boolean }) {
+  const desk = useDesk();
   const [items, setItems] = useState<any[]>([]);
   const [salons, setSalons] = useState<any[]>([]);
   const [open, setOpen] = useState<any>(null);
@@ -468,9 +475,9 @@ function Shop({ cart, setCart, canEdit }: { cart: Cart; setCart: (c: Cart) => vo
     <View style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={[s.pad, { paddingBottom: count ? 110 : 40 }]}>
         <PageTitle eyebrow="01 · Shop" t="Il nostro Shop" sub={`${items.length} prodotti scelti dai nostri barbieri`} />
-        <View style={s.grid}>
+        <View style={[s.grid, desk && s.grid3]}>
           {items.map((p) => (
-            <Pressable key={p.id} style={s.product} onPress={() => openProduct(p)} accessibilityRole="button" accessibilityLabel={`${p.name}, ${eur(p.price_cents)}`}>
+            <Pressable key={p.id} style={[s.product, desk && s.col3]} onPress={() => openProduct(p)} accessibilityRole="button" accessibilityLabel={`${p.name}, ${eur(p.price_cents)}`}>
               <View style={[s.productTile, !p.image_url && { backgroundColor: C.card2 }]}>
                 {p.image_url ? (
                   <Image source={{ uri: p.image_url }} style={s.productImg} resizeMode="contain" />
@@ -1965,7 +1972,8 @@ function Agenda({ staff }: { staff: StaffScope }) {
   }, [vm, nowW.min, dayS]);
 
   const { width: winW } = useWindowDimensions();
-  const wide = winW >= 900;
+  const desk = useDesk();
+  const wide = winW - (desk ? SIDE_W : 0) >= 900; // c'è spazio per titolo e conteggi accanto alle sedi
   const dayName = cap(day.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' }));
   const head = (
     <>
@@ -2410,6 +2418,7 @@ function MyDay({ uid }: { uid: string }) {
 
 // ───────── Barbieri (con foto) ─────────
 function Barbers({ canEdit, uid }: { canEdit: boolean; uid?: string }) {
+  const desk = useDesk();
   const [rows, setRows] = useState<any[]>([]);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [favId, setFavId] = useState<string | null>(null);
@@ -2456,9 +2465,9 @@ function Barbers({ canEdit, uid }: { canEdit: boolean; uid?: string }) {
   return (
     <ScrollView contentContainerStyle={s.pad}>
       <PageTitle eyebrow="01 · Il team" t="I nostri barbieri" sub={canEdit ? 'Tocca una foto per cambiarla.' : uid ? 'Tocca la stella per scegliere il tuo barbiere preferito.' : 'Il team di DF Barbershop.'} />
-      <View style={s.grid}>
+      <View style={[s.grid, desk && s.grid3]}>
         {rows.map((st) => (
-          <Pressable key={st.id} style={s.barber} onPress={() => pick(st)}>
+          <Pressable key={st.id} style={[s.barber, desk && s.col3]} onPress={() => pick(st)}>
             {st.photo_url ? (
               <Image source={{ uri: st.photo_url }} style={s.barberPhoto} />
             ) : (
@@ -3237,6 +3246,7 @@ export default function App() {
   const [cart, setCart] = useState<Cart>({});
   const uid = session?.user.id;
   const fontsReady = useBrandFont(); // titoli e frasi in corsivo: si disegna solo a caratteri pronti, senza "salti"
+  const desk = useDesk();
 
   // Tema: sul telefono segue il sistema; sul web conta anche la scelta fatta nell'app. Va deciso prima di disegnare le schermate.
   const system = useColorScheme();
@@ -3328,44 +3338,95 @@ export default function App() {
         </View>
       ) : (
         <SafeAreaView style={s.root}>
-          <Header onLogout={() => supabase.auth.signOut()} onMenu={staff || !roleReady ? undefined : () => setMenu(true)} />
-          {sub && (
-            <Pressable style={s.back} onPress={() => setTab('more')}>
-              <Ionicons name="chevron-back" size={20} color={C.accentText} />
-              <Text style={s.backT}>Altro</Text>
-            </Pressable>
-          )}
-          <Appear key={tab}>
-            {tab === 'book' && <Book uid={uid} onBooked={() => { setKey((k) => k + 1); setTab('mine'); }} />}
-            {tab === 'shop' && <Shop cart={cart} setCart={setCart} canEdit={owner} />}
-            {tab === 'team' && <Barbers canEdit={owner} uid={staff ? undefined : uid} />}
-            {tab === 'contacts' && <Contacts uid={uid} canPrefer={!staff} canEdit={owner} />}
-            {tab === 'mine' && <Mine session={session} refreshKey={key} />}
-            {tab === 'profile' && <Profile session={session} />}
-            {tab === 'myday' && staff && uid && <MyDay uid={uid} />}
-            {tab === 'agenda' && staff && <Agenda staff={staff} />}
-            {tab === 'new' && staff && <Book staff={staff} onBooked={() => setTab('agenda')} />}
-            {tab === 'orders' && staff && <OrdersAdmin />}
-            {tab === 'control' && owner && <ControlRoom />}
-            {tab === 'off' && staff && uid && <TimeOff staff={staff} uid={uid} />}
-            {tab === 'more' && staff && <More owner={owner} go={setTab} />}
-          </Appear>
-          <View style={s.tabWrap}>
-            <View style={s.tabbar}>
-              {tabs.map(([id, label, icon]) => {
-                const on = active === id;
-                return (
-                  <Pressable key={id} style={s.tabItem} onPress={() => setTab(id)} accessibilityRole="tab" accessibilityState={{ selected: on }} accessibilityLabel={label}>
-                    <View style={[s.tabLine, on && s.tabLineOn]} />
-                    <View style={s.tabPill}>
-                      <Ionicons name={icon as any} size={21} color={on ? C.accentText : C.muted} />
-                      <Text numberOfLines={1} allowFontScaling={false} style={[s.tabLabel, on && { color: C.accentText }]}>{label}</Text>
+          {(() => {
+            const onMenu = staff || !roleReady ? undefined : () => setMenu(true);
+            const back = sub && (
+              <Pressable style={s.back} onPress={() => setTab('more')}>
+                <Ionicons name="chevron-back" size={20} color={C.accentText} />
+                <Text style={s.backT}>Altro</Text>
+              </Pressable>
+            );
+            const screen = (
+              <Appear key={tab}>
+                {tab === 'book' && <Book uid={uid} onBooked={() => { setKey((k) => k + 1); setTab('mine'); }} />}
+                {tab === 'shop' && <Shop cart={cart} setCart={setCart} canEdit={owner} />}
+                {tab === 'team' && <Barbers canEdit={owner} uid={staff ? undefined : uid} />}
+                {tab === 'contacts' && <Contacts uid={uid} canPrefer={!staff} canEdit={owner} />}
+                {tab === 'mine' && <Mine session={session} refreshKey={key} />}
+                {tab === 'profile' && <Profile session={session} />}
+                {tab === 'myday' && staff && uid && <MyDay uid={uid} />}
+                {tab === 'agenda' && staff && <Agenda staff={staff} />}
+                {tab === 'new' && staff && <Book staff={staff} onBooked={() => setTab('agenda')} />}
+                {tab === 'orders' && staff && <OrdersAdmin />}
+                {tab === 'control' && owner && <ControlRoom />}
+                {tab === 'off' && staff && uid && <TimeOff staff={staff} uid={uid} />}
+                {tab === 'more' && staff && <More owner={owner} go={setTab} />}
+              </Appear>
+            );
+            // Computer: menu a sinistra, pagina centrata (l'agenda usa tutta la larghezza)
+            if (desk) {
+              return (
+                <View style={s.deskRow}>
+                  <View style={s.side}>
+                    <View style={s.sideBrand}>
+                      <DFMark size={38} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={s.headT} numberOfLines={1}>Daniele Fichera</Text>
+                        <Text style={s.headSub} numberOfLines={1}>Barber Shop · Roma</Text>
+                      </View>
                     </View>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
+                    <View style={s.sideNav}>
+                      {tabs.map(([id, label, icon]) => {
+                        const on = active === id;
+                        return (
+                          <Pressable key={id} style={[s.sideItem, on && s.sideItemOn]} onPress={() => setTab(id)} accessibilityRole="tab" accessibilityState={{ selected: on }} accessibilityLabel={label}>
+                            <View style={[s.sideBar, on && s.sideBarOn]} />
+                            <Ionicons name={icon as any} size={21} color={on ? C.accentText : C.muted} />
+                            <Text numberOfLines={1} style={[s.sideLabel, on && { color: C.accentText }]}>{label}</Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                    <View style={s.sideFoot}>
+                      <Pressable style={s.sideItem} onPress={onMenu ?? (() => supabase.auth.signOut())} accessibilityRole="button" accessibilityLabel={onMenu ? 'Account' : 'Esci'}>
+                        <Ionicons name={onMenu ? 'person-outline' : 'log-out-outline'} size={21} color={C.muted} />
+                        <Text style={s.sideLabel}>{onMenu ? 'Account' : 'Esci'}</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                  <View style={s.deskMain}>
+                    <View style={[s.deskPage, tab !== 'agenda' && s.deskPageNarrow]}>
+                      {back}
+                      {screen}
+                    </View>
+                  </View>
+                </View>
+              );
+            }
+            return (
+              <>
+                <Header onLogout={() => supabase.auth.signOut()} onMenu={onMenu} />
+                {back}
+                {screen}
+                <View style={s.tabWrap}>
+                  <View style={s.tabbar}>
+                    {tabs.map(([id, label, icon]) => {
+                      const on = active === id;
+                      return (
+                        <Pressable key={id} style={s.tabItem} onPress={() => setTab(id)} accessibilityRole="tab" accessibilityState={{ selected: on }} accessibilityLabel={label}>
+                          <View style={[s.tabLine, on && s.tabLineOn]} />
+                          <View style={s.tabPill}>
+                            <Ionicons name={icon as any} size={21} color={on ? C.accentText : C.muted} />
+                            <Text numberOfLines={1} allowFontScaling={false} style={[s.tabLabel, on && { color: C.accentText }]}>{label}</Text>
+                          </View>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+              </>
+            );
+          })()}
 
           <Modal visible={menu && !staff} transparent animationType="fade" onRequestClose={() => setMenu(false)}>
             <Pressable style={s.backdrop} onPress={() => setMenu(false)} />
@@ -3455,6 +3516,22 @@ function makeStyles() {
   input: { backgroundColor: C.card, ...hair, padding: 15, fontSize: 16, color: C.text, marginTop: 10 },
 
   // Barra delle schede: piatta, con filetto in alto e linea dorata sulla voce attiva
+  // Computer: menu laterale e pagina centrata
+  deskRow: { flex: 1, flexDirection: 'row' },
+  side: { width: SIDE_W, borderRightWidth: 1, borderRightColor: C.line, backgroundColor: C.bg, paddingVertical: 18, paddingHorizontal: 12 },
+  sideBrand: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 6, paddingBottom: 18, marginBottom: 14, borderBottomWidth: 1, borderBottomColor: C.line },
+  sideNav: { flex: 1, gap: 2 },
+  sideItem: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 13, paddingHorizontal: 16 },
+  sideItemOn: { backgroundColor: C.accentSoft },
+  sideBar: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 2, backgroundColor: 'transparent' },
+  sideBarOn: { backgroundColor: C.accent },
+  sideLabel: { ...lab(12, 1.8), color: C.muted, fontWeight: '700' },
+  sideFoot: { borderTopWidth: 1, borderTopColor: C.line, paddingTop: 10 },
+  deskMain: { flex: 1, minWidth: 0 },
+  deskPage: { flex: 1, width: '100%' },
+  deskPageNarrow: { maxWidth: 980, alignSelf: 'center' },
+  grid3: { justifyContent: 'flex-start', columnGap: '2.15%' as any },
+  col3: { width: '31.9%' },
   tabWrap: { borderTopWidth: 1, borderTopColor: C.line, backgroundColor: C.bg },
   tabbar: { flexDirection: 'row' },
   tabItem: { flex: 1 },
@@ -3484,8 +3561,9 @@ function makeStyles() {
   plus: { width: 32, height: 32, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center' },
   cartBar: { position: 'absolute', left: 16, right: 16, bottom: 16, flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: C.accent, paddingVertical: 16, paddingHorizontal: 18 },
   cartT: { ...lab(13, 1.8), color: C.onAccent, fontWeight: '700' },
-  backdrop: { flex: 1, backgroundColor: C.scrim },
-  sheet: { backgroundColor: C.card, borderTopWidth: 1, borderLeftWidth: 1, borderRightWidth: 1, borderColor: C.accentLine2, padding: 22, paddingBottom: 34 },
+  // Sul web lo scuro viene dall'ombra della scheda (copre anche i lati su schermo largo); sul telefono è lo sfondo qui sopra
+  backdrop: { flex: 1, backgroundColor: Platform.OS === 'web' ? 'transparent' : C.scrim },
+  sheet: { width: '100%', maxWidth: 560, alignSelf: 'center', backgroundColor: C.card, borderTopWidth: 1, borderLeftWidth: 1, borderRightWidth: 1, borderColor: C.accentLine2, padding: 22, paddingBottom: 34, ...(Platform.OS === 'web' ? ({ boxShadow: `0 0 0 100vmax ${C.scrim}` } as any) : null) },
   qtyBtn: { width: 32, height: 32, backgroundColor: C.card2, ...hair, alignItems: 'center', justifyContent: 'center', marginLeft: 8 },
   qtyT: { color: C.text, fontSize: 16, fontWeight: '800', minWidth: 22, textAlign: 'center', marginLeft: 8 },
 
