@@ -1804,6 +1804,45 @@ function TimeOff({ staff, uid }: { staff: StaffScope; uid: string }) {
 }
 
 // ───────── Agenda per barbieri e titolare ─────────
+// ───────── Agenda della sede: barbieri in colonna, orari in riga ─────────
+// Pensata per il tablet fisso in negozio: tutta la giornata in una schermata, uno slot vuoto = un tocco per aggiungere.
+const AG_TIME_W = 52;    // colonna degli orari
+const AG_MIN_COL = 148;  // larghezza minima di un barbiere (con più barbieri si scorre di lato)
+const AG_ROW = { comoda: 64, compatta: 44 } as const; // altezza di uno slot, in px
+type AgDensity = keyof typeof AG_ROW;
+type AgData = { salon: string; day: string; staff: any[]; hours: any[]; appts: any[]; off: any[]; services: any[]; links: any[] };
+const NO_ROWS: any[] = [];
+
+const hm = (min: number) => `${String(Math.floor(min / 60) % 24).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
+const toMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+const mergeRanges = (list: [number, number][]) => {
+  const out: [number, number][] = [];
+  [...list].sort((a, b) => a[0] - b[0]).forEach(([a, b]) => {
+    const last = out[out.length - 1];
+    if (last && a <= last[1]) last[1] = Math.max(last[1], b); else out.push([a, b]);
+  });
+  return out;
+};
+
+// Data (AAAA-MM-GG) e minuti dalla mezzanotte, "a muro" nel fuso della sede
+function wall(at: string | number | Date, tz: string): { date: string; min: number } {
+  const p = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(at));
+  const g = (t: string) => Number(p.find((x) => x.type === t)?.value ?? 0);
+  return { date: `${p.find((x) => x.type === 'year')?.value}-${p.find((x) => x.type === 'month')?.value}-${p.find((x) => x.type === 'day')?.value}`, min: (g('hour') % 24) * 60 + g('minute') };
+}
+// Istante reale di un orario "a muro" della sede: giorno AAAA-MM-GG + minuti dalla mezzanotte
+function wallToDate(day: string, min: number, tz: string): Date {
+  const [y, m, d] = day.split('-').map(Number);
+  const base = Date.UTC(y, m - 1, d, 0, min);
+  let t = base;
+  for (let i = 0; i < 2; i++) {
+    const w = wall(t, tz);
+    const [wy, wm, wd] = w.date.split('-').map(Number);
+    t -= Date.UTC(wy, wm - 1, wd, 0, w.min) - base;
+  }
+  return new Date(t);
+}
+
 function Agenda({ staff }: { staff: StaffScope }) {
   const days = useMemo(
     () => Array.from({ length: 15 }, (_, i) => { const d = new Date(); d.setDate(d.getDate() + i - 1); return d; }),
@@ -1812,63 +1851,415 @@ function Agenda({ staff }: { staff: StaffScope }) {
   const [salons, setSalons] = useState<any[]>([]);
   const [salon, setSalon] = useState<any>(null);
   const [day, setDay] = useState<Date>(days[1]);
-  const [rows, setRows] = useState<any[]>([]);
+  const [data, setData] = useState<AgData | null>(null);
+  const [now, setNow] = useState(() => new Date());
+  const [dense, setDense] = useState<AgDensity>('comoda');
+  const [box, setBox] = useState({ w: 0, h: 0 });
+  const [add, setAdd] = useState<{ st: any; t: number; room: number; svc: any[] } | null>(null);
+  const [open, setOpen] = useState<any>(null);
+  const scroller = useRef<ScrollView>(null);
+  const scrolled = useRef('');
+  const stamp = useRef(0);
 
   useEffect(() => {
-    supabase.from('salons').select('id,name,timezone').eq('active', true).order('name').then(({ data }) => {
+    supabase.from('salons').select('id,name,timezone,slot_step_min').eq('active', true).order('name').then(({ data }) => {
       const list = (data ?? []).filter((x: any) => !staff.salonIds || staff.salonIds.includes(x.id));
       setSalons(list);
       setSalon(list[0] ?? null);
     });
   }, [staff]);
 
+  const tz: string = salon?.timezone ?? 'Europe/Rome';
+  const step: number = salon?.slot_step_min || 30;
+  const ROW = AG_ROW[dense];
+  const dayS = ymd(day);
+  const nowW = wall(now, tz);
+  const isToday = nowW.date === dayS;
+
+  // Carico barbieri, turni, appuntamenti e assenze del giorno. Gli appuntamenti sono quelli dei barbieri della sede
+  // in tutte le sedi: un barbiere non può stare in due posti nello stesso momento.
   const load = useCallback(async () => {
     if (!salon) return;
-    const from = new Date(day); from.setHours(0, 0, 0, 0);
-    const to = new Date(from); to.setDate(to.getDate() + 1);
-    const { data } = await supabase
-      .from('appointments')
-      .select('id,starts_at,status,source,customer_id,reward_id,guest_name,guest_phone,profiles(full_name,phone),services(name),staff(name)')
-      .eq('salon_id', salon.id)
-      .gte('starts_at', from.toISOString())
-      .lt('starts_at', to.toISOString())
-      .neq('status', 'cancelled')
-      .order('starts_at');
-    setRows(data ?? []);
+    const me = ++stamp.current;
+    const wd = ((day.getDay() + 6) % 7) + 1;
+    const from = wallToDate(dayS, 0, salon.timezone).toISOString();
+    const to = wallToDate(dayS, 1440, salon.timezone).toISOString();
+    const st = await supabase.from('staff').select('id,name,photo_url,staff_salons!inner(salon_id)').eq('staff_salons.salon_id', salon.id).eq('active', true).order('name');
+    const people: any[] = st.data ?? [];
+    const ids = people.map((x) => x.id);
+    if (!ids.length) { if (me === stamp.current) setData({ salon: salon.id, day: dayS, staff: [], hours: [], appts: [], off: [], services: [], links: [] }); return; }
+    const [h, a, o, sv, ln] = await Promise.all([
+      supabase.from('working_hours').select('staff_id,start_time,end_time').eq('salon_id', salon.id).eq('weekday', wd),
+      supabase.from('appointments')
+        .select('id,salon_id,staff_id,starts_at,ends_at,status,source,customer_id,reward_id,guest_name,guest_phone,profiles(full_name,phone),services(name,duration_min,price_cents),staff(name)')
+        .in('staff_id', ids).gte('starts_at', from).lt('starts_at', to).neq('status', 'cancelled').order('starts_at'),
+      supabase.from('time_off').select('staff_id,starts_at,ends_at,reason').in('staff_id', ids).lt('starts_at', to).gt('ends_at', from),
+      supabase.from('services').select('id,name,category,duration_min,price_cents').eq('active', true).order('duration_min'),
+      supabase.from('staff_services').select('staff_id,service_id').in('staff_id', ids),
+    ]);
+    if (me !== stamp.current) return; // nel frattempo è stato scelto un altro giorno o un'altra sede
+    setData({ salon: salon.id, day: dayS, staff: people, hours: h.data ?? [], appts: a.data ?? [], off: o.data ?? [], services: sv.data ?? [], links: ln.data ?? [] });
   }, [salon, day]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { setData(null); load(); }, [load]);
+  // Il tablet resta acceso: ogni minuto aggiorno l'ora e i dati
+  useEffect(() => {
+    const t = setInterval(() => { setNow(new Date()); load(); }, 60000);
+    return () => clearInterval(t);
+  }, [load]);
 
-  const rewards = useRewards(rows);
+  const rewards = useRewards(data?.appts ?? NO_ROWS);
 
-  // Un blocco per barbiere, con i suoi appuntamenti in ordine di orario
-  const byStaff: Record<string, any[]> = {};
-  rows.forEach((r) => { (byStaff[r.staff.name] ||= []).push(r); });
+  const vm = useMemo(() => {
+    if (!data || !salon || data.salon !== salon.id || data.day !== dayS) return null; // dati di un'altra sede o di un altro giorno
+    const clampMin = (iso: string) => { const w = wall(iso, tz); return w.date < dayS ? 0 : w.date > dayS ? 1440 : w.min; };
+    const cols = data.staff.map((st) => {
+      const raw = data.hours.filter((x) => x.staff_id === st.id).map((x) => [toMin(x.start_time), toMin(x.end_time)] as [number, number]).sort((a, b) => a[0] - b[0]);
+      const appts = data.appts.filter((x) => x.staff_id === st.id).map((x) => { const s0 = clampMin(x.starts_at); return { r: x, s: s0, e: Math.max(clampMin(x.ends_at), s0 + 1), other: x.salon_id !== salon.id }; });
+      const off = data.off.filter((x) => x.staff_id === st.id).map((x) => ({ r: x, s: clampMin(x.starts_at), e: clampMin(x.ends_at) })).filter((x) => x.e > x.s);
+      const svc = data.links.filter((l) => l.staff_id === st.id).map((l) => data.services.find((x) => x.id === l.service_id)).filter(Boolean) as any[];
+      const minDur = svc.length ? Math.min(...svc.map((x) => x.duration_min)) : step;
+      const busy: { s: number; e: number }[] = [...appts, ...off];
+      const seen = new Set<number>();
+      const slots: { t: number; room: number }[] = [];
+      // Gli orari liberi sono gli stessi che il database offre ai clienti: partono dall'inizio di ogni turno, a passi di "step"
+      raw.forEach(([a, b]) => {
+        for (let t = a; t + minDur <= b; t += step) {
+          if (seen.has(t) || busy.some((x) => x.s <= t && t < x.e)) continue;
+          const next = Math.min(b, ...busy.filter((x) => x.s > t).map((x) => x.s));
+          if (next - t < minDur) continue;
+          seen.add(t); slots.push({ t, room: next - t });
+        }
+      });
+      return { st, shifts: mergeRanges(raw), appts, off, slots, svc };
+    });
+    const pts: number[] = [];
+    cols.forEach((c) => { c.shifts.forEach(([a, b]) => pts.push(a, b)); c.appts.forEach((x) => pts.push(x.s, x.e)); });
+    if (!pts.length) return { cols, lo: 0, hi: 0 };
+    return { cols, lo: Math.floor(Math.min(...pts) / step) * step, hi: Math.ceil(Math.max(...pts) / step) * step };
+  }, [data, tz, dayS, step, salon?.id]);
+
+  const past = (t: number, len: number) => dayS < nowW.date || (isToday && t + len <= nowW.min);
+  const y = (min: number) => ((min - (vm?.lo ?? 0)) / step) * ROW;
+  const n = vm?.cols.length ?? 0;
+  const colW = n ? Math.max(AG_MIN_COL, Math.floor((box.w - AG_TIME_W) / n)) : 0;
+  const contentW = AG_TIME_W + colW * n;
+  const totalH = vm ? y(vm.hi) : 0;
+  const rowsN = vm && vm.hi > vm.lo ? (vm.hi - vm.lo) / step : 0;
+
+  // Prima apertura del giorno: scorro fino all'ora attuale
+  useEffect(() => {
+    const k = `${salon?.id}|${dayS}|${dense}`;
+    if (!vm || !rowsN || !box.h || scrolled.current === k) return;
+    scrolled.current = k;
+    const to = isToday ? Math.max(0, y(nowW.min) - ROW * 1.5) : 0;
+    setTimeout(() => scroller.current?.scrollTo({ y: to, animated: false }), 60);
+  }, [vm, dense, box.h]);
+
+  const counts = useMemo(() => {
+    if (!vm) return { booked: 0, free: 0 };
+    return {
+      booked: vm.cols.reduce((a, c) => a + c.appts.filter((x) => !x.other).length, 0),
+      free: vm.cols.reduce((a, c) => a + c.slots.filter((x) => !past(x.t, Math.min(step, x.room))).length, 0),
+    };
+  }, [vm, nowW.min, dayS]);
+
+  const { width: winW } = useWindowDimensions();
+  const wide = winW >= 900;
+  const dayName = cap(day.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' }));
+  const head = (
+    <>
+      <Text style={s.agTitle} numberOfLines={1}>{dayName}</Text>
+      {vm && rowsN ? (
+        <Text style={s.rowSub} numberOfLines={1}>
+          {counts.booked} {counts.booked === 1 ? 'appuntamento' : 'appuntamenti'}{dayS < nowW.date ? '' : ` · ${counts.free} ${counts.free === 1 ? 'libero' : 'liberi'}`}
+        </Text>
+      ) : null}
+    </>
+  );
 
   return (
-    <ScrollView contentContainerStyle={s.pad}>
-      <View style={s.wrap}>
-        {salons.map((x) => (
-          <Chip key={x.id} label={x.name} on={salon?.id === x.id} onPress={() => setSalon(x)} />
-        ))}
-      </View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, marginTop: 14 }}>
-        {days.map((d) => (
-          <DayTile key={ymd(d)} d={d} on={ymd(d) === ymd(day)} onPress={() => setDay(d)} />
-        ))}
-      </ScrollView>
-
-      {salon && rows.length === 0 && <Text style={[s.muted, { marginTop: 24 }]}>Nessun appuntamento in questo giorno.</Text>}
-
-      {Object.entries(byStaff).map(([name, list]) => (
-        <View key={name}>
-          <Title t={name} />
-          {list.map((r) => (
-            <ApptCard key={r.id} r={r} tz={salon.timezone} hasReward={rewards.has(r.customer_id)} reload={load} />
-          ))}
+    <View style={{ flex: 1 }}>
+      <View style={s.agBar}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flex: 1 }} contentContainerStyle={{ gap: 8 }}>
+            {salons.map((x) => (
+              <Chip key={x.id} label={x.name} on={salon?.id === x.id} onPress={() => setSalon(x)} />
+            ))}
+          </ScrollView>
+          {wide ? <View style={{ alignItems: 'flex-end', marginRight: 6 }}>{head}</View> : null}
+          <IconBtn name={dense === 'comoda' ? 'contract-outline' : 'expand-outline'} onPress={() => setDense(dense === 'comoda' ? 'compatta' : 'comoda')} label={dense === 'comoda' ? 'Mostra più orari' : 'Mostra più dettagli'} />
+          <IconBtn name="refresh-outline" onPress={() => { setNow(new Date()); load(); }} label="Aggiorna" />
         </View>
-      ))}
-    </ScrollView>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+          {days.map((d) => {
+            const on = ymd(d) === dayS;
+            return (
+              <Pressable key={ymd(d)} onPress={() => setDay(d)} style={[s.agDay, on && s.chipOn]} accessibilityRole="button" accessibilityLabel={d.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' })}>
+                <Text style={[s.agDayW, on && s.onT]}>{d.toLocaleDateString('it-IT', { weekday: 'short' })}</Text>
+                <Text style={[s.agDayN, on && s.onT]}>{d.getDate()}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+        {wide ? null : <View style={{ alignItems: 'flex-start' }}>{head}</View>}
+      </View>
+
+      <View style={{ flex: 1, marginTop: 10 }} onLayout={(e: LayoutChangeEvent) => { const { width: w, height: h } = e.nativeEvent.layout; setBox((b) => (b.w === w && b.h === h ? b : { w, h })); }}>
+        {!salon || !vm || !box.h ? (
+          <ActivityIndicator color={C.accentText} style={{ marginTop: 40 }} />
+        ) : !rowsN ? (
+          <Text style={[s.muted, { padding: 20 }]}>
+            {vm.cols.length === 0 ? 'Nessun barbiere attivo in questa sede.' : 'Nessun turno in questo giorno: la sede è chiusa.'}
+          </Text>
+        ) : (
+          <ScrollView horizontal scrollEnabled={contentW > box.w} showsHorizontalScrollIndicator={contentW > box.w} style={{ flexGrow: 0 }}>
+            <ScrollView ref={scroller} style={{ width: contentW, height: box.h }} stickyHeaderIndices={[0]} showsVerticalScrollIndicator={false}>
+              {/* Barbieri (resta fissa in alto mentre si scorre) */}
+              <View style={s.agHeadRow}>
+                <View style={{ width: AG_TIME_W }} />
+                {vm.cols.map((c) => (
+                  <View key={c.st.id} style={[s.agHead, { width: colW }]}>
+                    <Avatar name={c.st.name} url={c.st.photo_url} size={32} />
+                    <View style={{ flex: 1 }}>
+                      <Text numberOfLines={1} style={s.agHeadName}>{c.st.name}</Text>
+                      <Text numberOfLines={1} style={s.agHeadSub}>
+                        {!c.shifts.length && !c.appts.length
+                          ? 'Non in turno'
+                          : `${c.appts.filter((x) => !x.other).length} app.${dayS < nowW.date ? '' : ` · ${c.slots.filter((x) => !past(x.t, Math.min(step, x.room))).length} liberi`}`}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+
+              <View style={{ flexDirection: 'row', height: totalH, width: contentW }}>
+                <View style={{ width: AG_TIME_W, height: totalH }}>
+                  {Array.from({ length: rowsN }, (_, i) => {
+                    const t = vm.lo + i * step;
+                    return <Text key={t} style={[s.agTime, t % 60 === 0 && s.agTimeH, { top: i * ROW + 4 }]}>{hm(t)}</Text>;
+                  })}
+                </View>
+
+                {vm.cols.map((c) => (
+                  <View key={c.st.id} style={[s.agCol, { width: colW, height: totalH }]}>
+                    {c.shifts.map(([a, b], i) => (
+                      <View key={`w${i}`} pointerEvents="none" style={[s.agShift, { top: y(Math.max(a, vm.lo)), height: y(Math.min(b, vm.hi)) - y(Math.max(a, vm.lo)) }]} />
+                    ))}
+                    {Array.from({ length: rowsN }, (_, i) => (
+                      <View key={`l${i}`} pointerEvents="none" style={[s.agLine, (vm.lo + i * step) % 60 === 0 && s.agLineH, { top: i * ROW }]} />
+                    ))}
+
+                    {c.off.map((o, i) => {
+                      const top = y(Math.max(o.s, vm.lo)); const h = y(Math.min(o.e, vm.hi)) - top;
+                      if (h <= 0) return null;
+                      return (
+                        <View key={`o${i}`} style={[s.agOff, { top, height: h }]}>
+                          <Ionicons name="moon-outline" size={14} color={C.muted} />
+                          <Text style={s.agOffT} numberOfLines={2}>{o.r.reason || 'Assente'}</Text>
+                        </View>
+                      );
+                    })}
+
+                    {c.slots.map(({ t, room }) => {
+                      const len = Math.min(step, room);
+                      const gone = past(t, len);
+                      return (
+                        <Pressable
+                          key={`f${t}`}
+                          disabled={gone}
+                          onPress={() => setAdd({ st: c.st, t, room, svc: c.svc })}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Aggiungi appuntamento con ${c.st.name} alle ${hm(t)}`}
+                          style={[s.agSlot, gone && s.agSlotOff, { top: y(t) + 2, height: (len / step) * ROW - 4 }]}
+                        >
+                          {gone ? null : <Ionicons name="add" size={18} color={C.accentText} />}
+                          <Text style={[s.agSlotT, gone && { color: C.muted }]}>{hm(t)}</Text>
+                        </Pressable>
+                      );
+                    })}
+
+                    {c.appts.map((x) => {
+                      const top = y(x.s) + 1; const h = Math.max(y(x.e) - y(x.s) - 2, 18);
+                      if (x.other) {
+                        return (
+                          <View key={x.r.id} style={[s.agBlk, s.agBlkOther, { top, height: h }]}>
+                            <Text style={s.agBlkSvc} numberOfLines={1}>{hm(x.s)} · In altra sede</Text>
+                          </View>
+                        );
+                      }
+                      const r = x.r;
+                      const who = r.profiles?.full_name ?? r.guest_name ?? 'Cliente';
+                      const tel = r.profiles?.phone ?? r.guest_phone;
+                      const lines = h >= 56 ? 3 : h >= 36 ? 2 : 1;
+                      const done = r.status === 'completed';
+                      const miss = r.status === 'no_show';
+                      const gift = !!r.reward_id || (r.status === 'confirmed' && rewards.has(r.customer_id));
+                      return (
+                        <Pressable
+                          key={r.id}
+                          onPress={() => setOpen(r)}
+                          accessibilityRole="button"
+                          accessibilityLabel={`${hm(x.s)} ${who}, ${r.services?.name ?? ''}. Apri`}
+                          style={[s.agBlk, done && s.agBlkDone, miss && s.agBlkMiss, { top, height: h }]}
+                        >
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                            <Text style={s.agBlkWho} numberOfLines={1}>
+                              <Text style={s.agBlkTime}>{hm(x.s)}</Text>{'  '}{who}
+                            </Text>
+                            {done ? <Ionicons name="checkmark-circle" size={15} color={C.ok} /> : null}
+                            {miss ? <Ionicons name="close-circle" size={15} color={C.danger} /> : null}
+                            {gift ? <Ionicons name="gift-outline" size={14} color={C.accentText} /> : null}
+                            {r.source === 'treatwell' ? <Text style={s.agTag}>{colW >= 190 ? 'TREATWELL' : 'TW'}</Text> : null}
+                          </View>
+                          {lines >= 2 ? <Text style={s.agBlkSvc} numberOfLines={1}>{r.services?.name}{lines >= 3 || h >= 46 ? ` · ${durLabel(x.e - x.s)}` : ''}</Text> : null}
+                          {lines >= 3 && tel ? <Text style={s.agBlkSvc} numberOfLines={1}>{tel}</Text> : null}
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                ))}
+
+                {/* Ora attuale */}
+                {isToday && nowW.min >= vm.lo && nowW.min <= vm.hi ? (
+                  <View pointerEvents="none" style={[s.agNow, { top: y(nowW.min) - 1 }]}>
+                    <View style={s.agNowDot} />
+                  </View>
+                ) : null}
+              </View>
+            </ScrollView>
+          </ScrollView>
+        )}
+      </View>
+
+      {add && salon ? (
+        <AgAdd
+          st={add.st} t={add.t} room={add.room} svc={add.svc} day={day} dayS={dayS} tz={tz} salon={salon}
+          onClose={() => setAdd(null)}
+          onSaved={() => { setAdd(null); load(); }}
+          onFail={load}
+        />
+      ) : null}
+      {open ? (
+        <AgDetail r={open} tz={tz} hasReward={rewards.has(open.customer_id)} onClose={() => setOpen(null)} reload={() => { setOpen(null); load(); }} />
+      ) : null}
+    </View>
+  );
+}
+
+// Nuovo appuntamento da uno slot vuoto: barbiere e orario sono già scelti
+function AgAdd({ st, t, room, svc, day, dayS, tz, salon, onClose, onSaved, onFail }: {
+  st: any; t: number; room: number; svc: any[]; day: Date; dayS: string; tz: string; salon: any;
+  onClose: () => void; onSaved: () => void; onFail: () => void;
+}) {
+  const { height } = useWindowDimensions();
+  const [service, setService] = useState<any>(null);
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [source, setSource] = useState<'manual' | 'treatwell'>('manual');
+  const [busy, setBusy] = useState(false);
+  const fits = (x: any) => x.duration_min <= room;
+
+  const save = async () => {
+    if (!service) return Alert.alert('Manca il servizio', 'Scegli il servizio.');
+    if (!name.trim()) return Alert.alert('Manca il nome', 'Inserisci il nome del cliente.');
+    setBusy(true);
+    const start = wallToDate(dayS, t, tz);
+    const { error } = await supabase.from('appointments').insert({
+      salon_id: salon.id,
+      staff_id: st.id,
+      service_id: service.id,
+      starts_at: start.toISOString(),
+      ends_at: new Date(start.getTime() + service.duration_min * 60000).toISOString(),
+      guest_name: name.trim(),
+      guest_phone: phone.trim() || null,
+      source,
+    });
+    setBusy(false);
+    if (error) { Alert.alert('Appuntamento non salvato', errText(error)); onFail(); return; }
+    onSaved();
+  };
+
+  return (
+    <Modal visible transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable style={s.backdrop} onPress={onClose} />
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <View style={[s.sheet, s.agSheet]}>
+          <ScrollView style={{ maxHeight: Math.max(height * 0.82, 320) }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+            <Text style={s.eyebrow}>Nuovo appuntamento</Text>
+            <Text style={s.h2}>{st.name} · {hm(t)}</Text>
+            <Text style={[s.rowSub, { marginBottom: 6 }]}>{dayLabel(day)} · libero fino alle {hm(t + room)}</Text>
+
+            <Text style={[s.cat, { marginTop: 14 }]}>Servizio</Text>
+            {svc.length === 0 ? <Text style={s.muted}>Questo barbiere non ha servizi assegnati.</Text> : null}
+            {Object.entries(groupBy(svc, 'category')).map(([cat, list]) => (
+              <View key={cat} style={{ marginBottom: 8 }}>
+                <View style={s.wrap}>
+                  {list.map((x) => {
+                    const on = service?.id === x.id;
+                    return (
+                      <Pressable key={x.id} disabled={!fits(x)} onPress={() => setService(x)} style={[s.chip, on && s.chipOn, !fits(x) && { opacity: 0.35 }]} accessibilityRole="button" accessibilityState={{ selected: on, disabled: !fits(x) }}>
+                        <Text style={[s.chipT, on && s.onT]}>{x.name}</Text>
+                        <Text style={[s.chipSub, on && s.onT]}>{fits(x) ? `${durLabel(x.duration_min)} · ${eur(x.price_cents)}` : 'Non c’è tempo'}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+            ))}
+
+            <TextInput style={s.input} placeholder="Nome e cognome" placeholderTextColor={C.muted} value={name} onChangeText={setName} />
+            <TextInput style={s.input} placeholder="Telefono (facoltativo)" placeholderTextColor={C.muted} keyboardType="phone-pad" value={phone} onChangeText={setPhone} />
+            <View style={[s.wrap, { marginTop: 12 }]}>
+              <Chip label="Telefono o di passaggio" on={source === 'manual'} onPress={() => setSource('manual')} />
+              <Chip label="Da Treatwell" on={source === 'treatwell'} onPress={() => setSource('treatwell')} />
+            </View>
+
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 18 }}>
+              <Pressable style={[s.prefBtn, { flex: 1, marginTop: 0 }]} onPress={onClose} accessibilityRole="button">
+                <Text style={s.prefBtnT}>Annulla</Text>
+              </Pressable>
+              <Pressable style={[s.bookGo, { flex: 1, justifyContent: 'center' }, (busy || !service) && { opacity: 0.45 }]} disabled={busy} onPress={save} accessibilityRole="button">
+                <Text style={s.goT}>{busy ? 'Un attimo…' : 'Salva'}</Text>
+              </Pressable>
+            </View>
+          </ScrollView>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
+// Dettaglio di un appuntamento: chiamata, WhatsApp e azioni (completato, non presentato, premio, annulla)
+function AgDetail({ r, tz, hasReward, onClose, reload }: { r: any; tz: string; hasReward: boolean; onClose: () => void; reload: () => void }) {
+  const tel = r.profiles?.phone ?? r.guest_phone;
+  const who = r.profiles?.full_name ?? r.guest_name ?? 'Cliente';
+  return (
+    <Modal visible transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable style={s.backdrop} onPress={onClose} />
+      <View style={[s.sheet, s.agSheet]}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+          <View style={{ flex: 1 }}>
+            <Text style={s.eyebrow}>{r.staff?.name ?? 'Barbiere'}</Text>
+            <Text style={s.h2} numberOfLines={1}>{who}</Text>
+          </View>
+          <IconBtn name="close" onPress={onClose} label="Chiudi" />
+        </View>
+        {tel ? (
+          <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12 }}>
+            <Pressable style={[s.prefBtn, { flex: 1, marginTop: 0 }]} onPress={() => openUrl(telUrl(tel))} accessibilityRole="button" accessibilityLabel={`Chiama ${tel}`}>
+              <Ionicons name="call-outline" size={18} color={C.accentText} />
+              <Text style={s.prefBtnT}>Chiama</Text>
+            </Pressable>
+            <Pressable style={[s.prefBtn, { flex: 1, marginTop: 0 }]} onPress={() => openUrl(waUrl(tel))} accessibilityRole="button" accessibilityLabel={`Scrivi su WhatsApp a ${tel}`}>
+              <Ionicons name="logo-whatsapp" size={18} color={C.accentText} />
+              <Text style={s.prefBtnT}>WhatsApp</Text>
+            </Pressable>
+          </View>
+        ) : null}
+        <ApptCard r={r} tz={tz} hasReward={hasReward} reload={reload} extra={`${durLabel(r.services?.duration_min ?? 0)} · ${eur(r.services?.price_cents ?? 0)}`} />
+      </View>
+    </Modal>
   );
 }
 
@@ -3236,6 +3627,39 @@ function makeStyles() {
   mapAttr: { position: 'absolute', left: 8, bottom: 6, color: 'rgba(248,244,234,0.7)', fontSize: 10, backgroundColor: 'rgba(0,0,0,0.45)', paddingHorizontal: 5, paddingVertical: 1, overflow: 'hidden' },
   pinWrap: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
   pinRing: { width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(196,168,104,0.28)', borderWidth: 1.5, borderColor: 'rgba(196,168,104,0.8)' },
+
+  // Agenda della sede (griglia barbieri × orari)
+  agBar: { paddingHorizontal: 16, paddingTop: 12, gap: 10 },
+  agDay: { width: 50, alignItems: 'center', paddingVertical: 6, backgroundColor: C.card, ...hair },
+  agDayW: { ...lab(9.5, 1.2), color: C.muted },
+  agDayN: { ...disp(22, 0.4), color: C.text, lineHeight: 24 },
+  agTitle: { ...disp(22, 0.8), color: C.text, flexShrink: 1 },
+  agHeadRow: { flexDirection: 'row', backgroundColor: C.bg, borderTopWidth: 1, borderTopColor: C.line, borderBottomWidth: 1, borderBottomColor: C.accentLine2 },
+  agHead: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 8, paddingVertical: 8, borderLeftWidth: 1, borderLeftColor: C.line },
+  agHeadName: { ...disp(17, 0.6), color: C.text },
+  agHeadSub: { color: C.muted, fontSize: 11.5, marginTop: 1 },
+  agTime: { position: 'absolute', left: 0, width: AG_TIME_W, textAlign: 'center', color: C.muted, fontSize: 11.5, fontVariant: ['tabular-nums'] },
+  agTimeH: { color: C.text, fontWeight: '700', fontSize: 12.5 },
+  agCol: { borderLeftWidth: 1, borderLeftColor: C.line, backgroundColor: C.card2 },
+  agShift: { position: 'absolute', left: 0, right: 0, backgroundColor: C.card },
+  agLine: { position: 'absolute', left: 0, right: 0, height: 1, backgroundColor: C.line, opacity: 0.5 },
+  agLineH: { opacity: 1 },
+  agSlot: { position: 'absolute', left: 4, right: 4, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, borderWidth: 1, borderStyle: 'dashed', borderColor: C.accentLine },
+  agSlotOff: { borderColor: 'transparent', opacity: 0.4 },
+  agSlotT: { color: C.accentText, fontSize: 12.5, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  agBlk: { position: 'absolute', left: 4, right: 4, paddingHorizontal: 8, paddingVertical: 4, gap: 1, overflow: 'hidden', backgroundColor: C.accentSoft, borderWidth: 1, borderColor: C.accentLine2, borderLeftWidth: 3, borderLeftColor: C.accent },
+  agBlkDone: { backgroundColor: C.card2, borderColor: C.line, borderLeftColor: C.ok, opacity: 0.8 },
+  agBlkMiss: { backgroundColor: C.dangerSoft, borderColor: C.line, borderLeftColor: C.danger },
+  agBlkOther: { backgroundColor: C.card2, borderColor: C.line, borderLeftColor: C.muted, justifyContent: 'center' },
+  agBlkWho: { flex: 1, color: C.text, fontSize: 14, fontWeight: '700' },
+  agBlkTime: { color: C.accentText, fontSize: 12.5, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  agBlkSvc: { color: C.muted, fontSize: 12.5 },
+  agTag: { ...lab(9, 0.6), fontWeight: '800', color: C.onAccent, backgroundColor: C.accent, paddingHorizontal: 4, paddingVertical: 1, overflow: 'hidden' },
+  agOff: { position: 'absolute', left: 4, right: 4, padding: 8, gap: 4, alignItems: 'center', justifyContent: 'center', backgroundColor: C.card2, borderWidth: 1, borderColor: C.line, opacity: 0.95 },
+  agOffT: { color: C.muted, fontSize: 12.5, textAlign: 'center' },
+  agNow: { position: 'absolute', left: AG_TIME_W - 5, right: 0, height: 2, backgroundColor: C.danger },
+  agNowDot: { position: 'absolute', left: 0, top: -4, width: 10, height: 10, borderRadius: 5, backgroundColor: C.danger },
+  agSheet: { width: '100%', maxWidth: 560, alignSelf: 'center' },
 });
 }
 let s = makeStyles();
