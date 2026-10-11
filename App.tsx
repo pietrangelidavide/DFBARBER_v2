@@ -312,10 +312,9 @@ const Step = ({ n, t, done }: { n: number; t: string; done?: boolean }) => (
   </View>
 );
 
-// Web su schermo largo (computer): menu laterale al posto della barra in basso e contenuto centrato.
+// Web su schermo largo (computer): menu in alto al posto della barra in basso e contenuto centrato.
 // Sul telefono e sul tablet (anche in orizzontale) resta la barra in basso.
 const DESK_MIN = 1100;
-const SIDE_W = 264;
 const useDesk = () => { const { width } = useWindowDimensions(); return Platform.OS === 'web' && width >= DESK_MIN; };
 
 function Header({ onLogout, onMenu }: { onLogout: () => void; onMenu?: () => void }) {
@@ -1940,19 +1939,40 @@ function Agenda({ staff }: { staff: StaffScope }) {
       });
       return { st, shifts: mergeRanges(raw), appts, off, slots, svc };
     });
-    const pts: number[] = [];
-    cols.forEach((c) => { c.shifts.forEach(([a, b]) => pts.push(a, b)); c.appts.forEach((x) => pts.push(x.s, x.e)); });
-    if (!pts.length) return { cols, lo: 0, hi: 0 };
-    return { cols, lo: Math.floor(Math.min(...pts) / step) * step, hi: Math.ceil(Math.max(...pts) / step) * step };
+    // Orari coperti da almeno un turno o appuntamento; i vuoti in mezzo (la pausa pranzo) diventano una sola riga
+    const cov = mergeRanges(cols.flatMap((c) => [...c.shifts, ...c.appts.map((x) => [x.s, x.e] as [number, number])].map(([a, b]) => [a, b] as [number, number])));
+    if (!cov.length) return { cols, lo: 0, hi: 0, gaps: [] as { a: number; b: number }[], rows: [] as number[] };
+    const lo = Math.floor(cov[0][0] / step) * step;
+    const hi = Math.ceil(cov[cov.length - 1][1] / step) * step;
+    const gaps: { a: number; b: number }[] = [];
+    for (let i = 1; i < cov.length; i++) {
+      const a = Math.ceil(cov[i - 1][1] / step) * step;
+      const b = Math.floor(cov[i][0] / step) * step;
+      if (b - a >= Math.max(60, 2 * step)) gaps.push({ a, b });
+    }
+    const rows: number[] = [];
+    for (let t = lo; t < hi; t += step) if (!gaps.some((g) => t >= g.a && t < g.b)) rows.push(t);
+    return { cols, lo, hi, gaps, rows };
   }, [data, tz, dayS, step, salon?.id]);
 
   const past = (t: number, len: number) => dayS < nowW.date || (isToday && t + len <= nowW.min);
-  const y = (min: number) => ((min - (vm?.lo ?? 0)) / step) * ROW;
+  const PAUSE_H = dense === 'comoda' ? 52 : 36; // altezza della riga di pausa
+  // Posizione verticale di un orario: le pause occupano solo PAUSE_H invece di tutte le righe che coprirebbero
+  const y = (min: number) => {
+    if (!vm) return 0;
+    let cut = 0;
+    for (const g of vm.gaps) {
+      if (min >= g.b) { cut += ((g.b - g.a) / step) * ROW - PAUSE_H; continue; }
+      if (min > g.a) return ((g.a - vm.lo) / step) * ROW - cut + ((min - g.a) / (g.b - g.a)) * PAUSE_H;
+      break;
+    }
+    return ((min - vm.lo) / step) * ROW - cut;
+  };
   const n = vm?.cols.length ?? 0;
   const colW = n ? Math.max(AG_MIN_COL, Math.floor((box.w - AG_TIME_W) / n)) : 0;
   const contentW = AG_TIME_W + colW * n;
   const totalH = vm ? y(vm.hi) : 0;
-  const rowsN = vm && vm.hi > vm.lo ? (vm.hi - vm.lo) / step : 0;
+  const rowsN = vm ? vm.rows.length : 0;
 
   // Prima apertura del giorno: scorro fino all'ora attuale
   useEffect(() => {
@@ -1972,8 +1992,7 @@ function Agenda({ staff }: { staff: StaffScope }) {
   }, [vm, nowW.min, dayS]);
 
   const { width: winW } = useWindowDimensions();
-  const desk = useDesk();
-  const wide = winW - (desk ? SIDE_W : 0) >= 900; // c'è spazio per titolo e conteggi accanto alle sedi
+  const wide = winW >= 900; // c'è spazio per titolo e conteggi accanto alle sedi
   const dayName = cap(day.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' }));
   const head = (
     <>
@@ -2043,10 +2062,7 @@ function Agenda({ staff }: { staff: StaffScope }) {
 
               <View style={{ flexDirection: 'row', height: totalH, width: contentW }}>
                 <View style={{ width: AG_TIME_W, height: totalH }}>
-                  {Array.from({ length: rowsN }, (_, i) => {
-                    const t = vm.lo + i * step;
-                    return <Text key={t} style={[s.agTime, t % 60 === 0 && s.agTimeH, { top: i * ROW + 4 }]}>{hm(t)}</Text>;
-                  })}
+                  {vm.rows.map((t) => <Text key={t} style={[s.agTime, t % 60 === 0 && s.agTimeH, { top: y(t) + 4 }]}>{hm(t)}</Text>)}
                 </View>
 
                 {vm.cols.map((c) => (
@@ -2054,8 +2070,8 @@ function Agenda({ staff }: { staff: StaffScope }) {
                     {c.shifts.map(([a, b], i) => (
                       <View key={`w${i}`} pointerEvents="none" style={[s.agShift, { top: y(Math.max(a, vm.lo)), height: y(Math.min(b, vm.hi)) - y(Math.max(a, vm.lo)) }]} />
                     ))}
-                    {Array.from({ length: rowsN }, (_, i) => (
-                      <View key={`l${i}`} pointerEvents="none" style={[s.agLine, (vm.lo + i * step) % 60 === 0 && s.agLineH, { top: i * ROW }]} />
+                    {vm.rows.map((t) => (
+                      <View key={`l${t}`} pointerEvents="none" style={[s.agLine, t % 60 === 0 && s.agLineH, { top: y(t) }]} />
                     ))}
 
                     {c.off.map((o, i) => {
@@ -2125,6 +2141,14 @@ function Agenda({ staff }: { staff: StaffScope }) {
                         </Pressable>
                       );
                     })}
+                  </View>
+                ))}
+
+                {/* Pausa: una sola riga per tutti i barbieri */}
+                {vm.gaps.map((g) => (
+                  <View key={`p${g.a}`} pointerEvents="none" style={[s.agPause, { top: y(g.a), height: PAUSE_H, width: contentW }]}>
+                    <Ionicons name="restaurant-outline" size={16} color={C.muted} />
+                    <Text style={s.agPauseT} numberOfLines={1}>{g.a >= 11 * 60 && g.b <= 16 * 60 ? 'Pausa pranzo' : 'Pausa'} · {hm(g.a)}–{hm(g.b)}</Text>
                   </View>
                 ))}
 
@@ -3363,36 +3387,34 @@ export default function App() {
                 {tab === 'more' && staff && <More owner={owner} go={setTab} />}
               </Appear>
             );
-            // Computer: menu a sinistra, pagina centrata (l'agenda usa tutta la larghezza)
+            // Computer: menu in alto, pagina centrata (l'agenda usa tutta la larghezza)
             if (desk) {
               return (
-                <View style={s.deskRow}>
-                  <View style={s.side}>
-                    <View style={s.sideBrand}>
-                      <DFMark size={38} />
-                      <View style={{ flex: 1 }}>
+                <View style={s.deskCol}>
+                  <View style={s.top}>
+                    <View style={s.topBrand}>
+                      <DFMark size={34} />
+                      <View>
                         <Text style={s.headT} numberOfLines={1}>Daniele Fichera</Text>
                         <Text style={s.headSub} numberOfLines={1}>Barber Shop · Roma</Text>
                       </View>
                     </View>
-                    <View style={s.sideNav}>
+                    <View style={s.topNav}>
                       {tabs.map(([id, label, icon]) => {
                         const on = active === id;
                         return (
-                          <Pressable key={id} style={[s.sideItem, on && s.sideItemOn]} onPress={() => setTab(id)} accessibilityRole="tab" accessibilityState={{ selected: on }} accessibilityLabel={label}>
-                            <View style={[s.sideBar, on && s.sideBarOn]} />
-                            <Ionicons name={icon as any} size={21} color={on ? C.accentText : C.muted} />
-                            <Text numberOfLines={1} style={[s.sideLabel, on && { color: C.accentText }]}>{label}</Text>
+                          <Pressable key={id} style={[s.topItem, on && s.topItemOn]} onPress={() => setTab(id)} accessibilityRole="tab" accessibilityState={{ selected: on }} accessibilityLabel={label}>
+                            <Ionicons name={icon as any} size={20} color={on ? C.accentText : C.muted} />
+                            <Text numberOfLines={1} style={[s.topLabel, on && { color: C.accentText }]}>{label}</Text>
+                            <View style={[s.topBar, on && s.topBarOn]} />
                           </Pressable>
                         );
                       })}
                     </View>
-                    <View style={s.sideFoot}>
-                      <Pressable style={s.sideItem} onPress={onMenu ?? (() => supabase.auth.signOut())} accessibilityRole="button" accessibilityLabel={onMenu ? 'Account' : 'Esci'}>
-                        <Ionicons name={onMenu ? 'person-outline' : 'log-out-outline'} size={21} color={C.muted} />
-                        <Text style={s.sideLabel}>{onMenu ? 'Account' : 'Esci'}</Text>
-                      </Pressable>
-                    </View>
+                    <Pressable style={s.topItem} onPress={onMenu ?? (() => supabase.auth.signOut())} accessibilityRole="button" accessibilityLabel={onMenu ? 'Account' : 'Esci'}>
+                      <Ionicons name={onMenu ? 'person-outline' : 'log-out-outline'} size={20} color={C.muted} />
+                      <Text style={s.topLabel}>{onMenu ? 'Account' : 'Esci'}</Text>
+                    </Pressable>
                   </View>
                   <View style={s.deskMain}>
                     <View style={[s.deskPage, tab !== 'agenda' && s.deskPageNarrow]}>
@@ -3516,17 +3538,16 @@ function makeStyles() {
   input: { backgroundColor: C.card, ...hair, padding: 15, fontSize: 16, color: C.text, marginTop: 10 },
 
   // Barra delle schede: piatta, con filetto in alto e linea dorata sulla voce attiva
-  // Computer: menu laterale e pagina centrata
-  deskRow: { flex: 1, flexDirection: 'row' },
-  side: { width: SIDE_W, borderRightWidth: 1, borderRightColor: C.line, backgroundColor: C.bg, paddingVertical: 18, paddingHorizontal: 12 },
-  sideBrand: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 6, paddingBottom: 18, marginBottom: 14, borderBottomWidth: 1, borderBottomColor: C.line },
-  sideNav: { flex: 1, gap: 2 },
-  sideItem: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 13, paddingHorizontal: 16 },
-  sideItemOn: { backgroundColor: C.accentSoft },
-  sideBar: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 2, backgroundColor: 'transparent' },
-  sideBarOn: { backgroundColor: C.accent },
-  sideLabel: { ...lab(12, 1.8), color: C.muted, fontWeight: '700' },
-  sideFoot: { borderTopWidth: 1, borderTopColor: C.line, paddingTop: 10 },
+  // Computer: menu in alto e pagina centrata
+  deskCol: { flex: 1 },
+  top: { flexDirection: 'row', alignItems: 'stretch', gap: 24, paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: C.line, backgroundColor: C.bg },
+  topBrand: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
+  topNav: { flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'stretch' },
+  topItem: { flexDirection: 'row', alignItems: 'center', gap: 9, paddingHorizontal: 18, paddingVertical: 16 },
+  topItemOn: { backgroundColor: C.accentSoft },
+  topLabel: { ...lab(12, 1.8), color: C.muted, fontWeight: '700' },
+  topBar: { position: 'absolute', left: 0, right: 0, bottom: -1, height: 2, backgroundColor: 'transparent' },
+  topBarOn: { backgroundColor: C.accent },
   deskMain: { flex: 1, minWidth: 0 },
   deskPage: { flex: 1, width: '100%' },
   deskPageNarrow: { maxWidth: 980, alignSelf: 'center' },
@@ -3735,6 +3756,8 @@ function makeStyles() {
   agTag: { ...lab(9, 0.6), fontWeight: '800', color: C.onAccent, backgroundColor: C.accent, paddingHorizontal: 4, paddingVertical: 1, overflow: 'hidden' },
   agOff: { position: 'absolute', left: 4, right: 4, padding: 8, gap: 4, alignItems: 'center', justifyContent: 'center', backgroundColor: C.card2, borderWidth: 1, borderColor: C.line, opacity: 0.95 },
   agOffT: { color: C.muted, fontSize: 12.5, textAlign: 'center' },
+  agPause: { position: 'absolute', left: 0, flexDirection: 'row', alignItems: 'center', gap: 10, paddingLeft: AG_TIME_W + 14, backgroundColor: C.card2, borderTopWidth: 1, borderBottomWidth: 1, borderColor: C.line },
+  agPauseT: { ...lab(11, 1.8), color: C.muted, fontWeight: '700' },
   agNow: { position: 'absolute', left: AG_TIME_W - 5, right: 0, height: 2, backgroundColor: C.danger },
   agNowDot: { position: 'absolute', left: 0, top: -4, width: 10, height: 10, borderRadius: 5, backgroundColor: C.danger },
   agSheet: { width: '100%', maxWidth: 560, alignSelf: 'center' },
