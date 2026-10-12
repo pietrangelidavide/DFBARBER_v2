@@ -455,6 +455,7 @@ begin
 end $$;
 
 -- ───────── Automazioni (da attivare dopo aver distribuito la Edge Function) ─────────
+-- La stessa funzione invia i promemoria del giorno prima e la notifica «Com'è andata?» a fine servizio.
 -- Sostituisci URL e segreto (lo stesso valore di CRON_SECRET), poi togli i commenti.
 -- create extension if not exists pg_cron;
 -- select cron.schedule('promemoria-appuntamenti', '*/15 * * * *', $$
@@ -867,3 +868,36 @@ update salons set phone = '+39 351 729 7915' where name = 'Cecchignola' and phon
 update salons set phone = '+39 06 271 5453'  where name = 'Fonte Laurentina' and phone is null;
 update salons set phone = '+39 06 8398 6576' where name = 'EUR - Papillo' and phone is null;
 update salons set email = 'df7barber@gmail.com' where email is null;
+
+-- ───────── Recensioni su Google e valutazione a fine servizio ─────────
+-- Da eseguire una volta nel SQL Editor di Supabase (dopo il blocco precedente). Si può rilanciare senza danni.
+
+-- 1) Collegamento alle recensioni Google di ogni sede.
+--    Puoi incollare il "Place ID" della sede (inizia per ChIJ…, lo trovi cercando la sede su
+--    https://developers.google.com/maps/documentation/places/web-service/place-id) oppure il link diretto
+--    per le recensioni che Google mostra nel profilo dell'attività (del tipo https://g.page/r/…/review). Lo imposta anche il titolare dall'app:
+--    Contatti > Modifica contatti.
+alter table salons add column if not exists google_review_url text;
+-- update salons set google_review_url = 'ChIJ…' where name = 'EUR - Papillo';
+
+-- 2) Valutazione data dal cliente (da 1 a 5 stelle) a servizio concluso
+alter table appointments add column if not exists rating int check (rating between 1 and 5);
+alter table appointments add column if not exists rated_at timestamptz;
+alter table appointments add column if not exists review_prompt_sent_at timestamptz;  -- notifica «Com'è andata?» già inviata
+
+-- Il cliente valuta solo i propri appuntamenti completati (e può cambiare idea)
+create or replace function rate_appointment(p_id uuid, p_rating int) returns void
+language plpgsql security definer set search_path = public as $$
+declare a appointments%rowtype;
+begin
+  if auth.uid() is null then raise exception 'login_required'; end if;
+  if p_rating is null or p_rating not between 1 and 5 then raise exception 'invalid_rating'; end if;
+  select * into a from appointments where id = p_id;
+  if not found or a.customer_id is distinct from auth.uid() then raise exception 'forbidden'; end if;
+  if a.status <> 'completed' then raise exception 'not_completed'; end if;
+  update appointments set rating = p_rating, rated_at = now() where id = p_id;
+end $$;
+
+-- La notifica «Com'è andata?» parte dalla stessa funzione dei promemoria (send-reminders, già in cron ogni 15 minuti):
+-- circa mezz'ora dopo la fine di ogni appuntamento completato e non ancora valutato. Non serve un'altra automazione.
+-- Per leggere le valutazioni: Table Editor > appointments (colonne rating e rated_at).

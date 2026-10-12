@@ -33,3 +33,22 @@ export async function registerForPush() {
     console.log('Notifiche push non attivate:', e);
   }
 }
+
+// Tocco su una notifica (anche quella che ha aperto l'app da chiusa): passa i dati allegati, es. { type: 'review', appointmentId }.
+// Ogni notifica viene gestita una volta sola. Restituisce la funzione per smettere di ascoltare.
+const handled = new Set<string>();
+export function onNotificationOpen(cb: (data: any) => void): () => void {
+  try {
+    const run = (r: Notifications.NotificationResponse | null | undefined) => {
+      const id = r?.notification?.request?.identifier;
+      if (!r || !id || handled.has(id)) return;
+      handled.add(id);
+      cb(r.notification.request.content.data ?? {});
+    };
+    const sub = Notifications.addNotificationResponseReceivedListener(run);
+    Promise.resolve(Notifications.getLastNotificationResponseAsync()).then(run).catch(() => {});
+    return () => sub.remove();
+  } catch {
+    return () => {};
+  }
+}

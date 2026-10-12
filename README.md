@@ -1,6 +1,6 @@
 # DF Barbershop – app di prenotazione
 
-App per i tre saloni DF Barbershop (Roma): prenotazioni, barbieri, Shop con Stripe, promemoria push, carta fedeltà.
+App per i tre saloni DF Barbershop (Roma): prenotazioni, barbieri, Shop con Stripe, promemoria push, carta fedeltà, valutazioni e recensioni su Google.
 Expo / React Native (iPhone, Android, web) + Supabase.
 
 ```
@@ -21,6 +21,24 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=la_chiave_anon
 ```
 
 Le chiavi Stripe e la `service_role` non vanno mai in un file: stanno solo come segreti su Supabase.
+
+## Recensioni su Google e valutazione a fine servizio
+
+Quando un appuntamento è **Completato**, il cliente può dire com'è andata e lasciare una recensione su Google:
+
+1. **Notifica «Com'è andata?»:** circa mezz'ora dopo la fine dell'appuntamento parte una notifica push (la manda la funzione `send-reminders`, già in cron ogni 15 minuti: niente di nuovo da attivare). Toccandola l'app si apre sull'Agenda con il pannello di valutazione.
+2. **Scheda in Agenda:** per 14 giorni, anche senza notifiche, gli appuntamenti completati e non ancora valutati compaiono in cima all'Agenda con cinque stelle.
+3. **Valutazione:** il cliente tocca le stelle (da 1 a 5); il voto si salva in `appointments.rating`.
+4. **Google:** subito dopo compare «Scrivi la recensione su Google», che apre la pagina di recensione della sede. Il pulsante compare **a tutti, qualunque sia il voto**: le regole di Google vietano di mandare alle recensioni solo i clienti contenti. Con 3 stelle o meno c'è in più, in secondo piano, «Preferisci scrivere al salone? WhatsApp». Google non permette di precompilare le stelle: sulla sua pagina il cliente le sceglie di nuovo.
+5. **Contatti:** in *Contatti* ogni sede con il collegamento ha anche la riga «Scrivi una recensione su Google», sempre disponibile.
+
+Da fare una volta:
+
+- Esegui nel SQL Editor di Supabase l'ultimo blocco di `supabase/setup.sql` («Recensioni su Google…»). Si può rilanciare senza danni.
+- Ridistribuisci la funzione: `supabase functions deploy send-reminders`.
+- Come titolare apri *Contatti*, scegli la sede e in «Modifica contatti» incolla in **Recensioni Google** il *Place ID* della sede (inizia per `ChIJ…`) oppure il link per le recensioni del profilo attività (`https://g.page/r/…/review`). Senza collegamento la notifica e le stelle funzionano lo stesso, ma non c'è il passaggio su Google.
+- Le valutazioni si leggono dal Table Editor di Supabase (tabella `appointments`, colonne `rating` e `rated_at`).
+- Le notifiche push arrivano solo sui telefoni con l'app installata e il permesso concesso (su Android serve anche Firebase, vedi sotto).
 
 ## Tema chiaro e scuro
 

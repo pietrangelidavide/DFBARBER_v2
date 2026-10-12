@@ -9,7 +9,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './lib/supabase';
-import { registerForPush } from './lib/push';
+import { registerForPush, onNotificationOpen } from './lib/push';
 
 // Su web Alert.alert non mostra nulla: uso i dialoghi del browser
 const Alert: typeof RNAlert =
@@ -136,6 +136,13 @@ const waUrl = (v?: string | null, text?: string) => {
   let n = digits(v ?? '').replace(/^00/, '');
   if (n.length === 10 && n.startsWith('3')) n = `39${n}`; // cellulare italiano scritto senza prefisso
   return `https://wa.me/${n}${text ? `?text=${encodeURIComponent(text)}` : ''}`;
+};
+// Link per scrivere una recensione su Google: accetta il Place ID della sede (ChIJ…) oppure un indirizzo completo
+const googleReviewUrl = (v?: string | null) => {
+  const x = (v ?? '').trim();
+  if (!x) return null;
+  if (/^https?:\/\//i.test(x)) return x;
+  return /^[A-Za-z0-9_-]{20,}$/.test(x) ? `https://search.google.com/local/writereview?placeid=${encodeURIComponent(x)}` : null;
 };
 const mapsSearch = (addr: string) => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr)}`;
 const mapsRoute = (addr: string) => `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(addr)}`;
@@ -1493,9 +1500,89 @@ function Book({ onBooked, staff, uid }: { onBooked: () => void; staff?: StaffSco
   );
 }
 
+// ───────── Valutazione a fine servizio e recensione su Google ─────────
+const RATE_COLS = 'id,starts_at,rating,salons(name,timezone,whatsapp,google_review_url),services(name),staff(name)';
+const RATE_WORDS = ['Da migliorare', 'Così così', 'Bene', 'Molto bene', 'Ottimo'];
+const dayWord = (iso: string, tz = 'Europe/Rome') => {
+  const ymd = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: tz });
+  const d = new Date(iso), now = new Date();
+  if (ymd(d) === ymd(now)) return 'oggi';
+  if (ymd(d) === ymd(new Date(now.getTime() - 86400e3))) return 'ieri';
+  return d.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long', timeZone: tz });
+};
+
+// Pannello «Com'è andata?»: le stelle si salvano al tocco, poi si propone la recensione su Google (a tutti, qualunque voto)
+function ReviewSheet({ a, initial, onClose, onSaved }: { a: any | null; initial: number; onClose: () => void; onSaved: () => void }) {
+  const [stars, setStars] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const link = googleReviewUrl(a?.salons?.google_review_url);
+
+  const pick = async (n: number) => {
+    if (!a || busy) return;
+    setStars(n);
+    setBusy(true);
+    const { error } = await supabase.rpc('rate_appointment', { p_id: a.id, p_rating: n });
+    setBusy(false);
+    if (error) { setStars(0); Alert.alert('Non riesco a salvare la valutazione', errText(error)); return; }
+    onSaved();
+  };
+  useEffect(() => {
+    setStars(0);
+    if (a && initial) pick(initial);
+  }, [a?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return (
+    <Modal visible={!!a} transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable style={s.backdrop} onPress={onClose} />
+      <View style={s.sheet}>
+        <View style={s.grab} />
+        {a && (
+          <>
+            <Text style={s.h1}>Com’è andata?</Text>
+            <Text style={s.muted}>{a.services?.name} con {a.staff?.name}, {a.salons?.name}</Text>
+            <View style={s.rvStars}>
+              {[1, 2, 3, 4, 5].map((n) => (
+                <Pressable key={n} onPress={() => pick(n)} hitSlop={6} accessibilityRole="button" accessibilityLabel={`${n} ${n === 1 ? 'stella' : 'stelle'}`}>
+                  <Ionicons name={n <= stars ? 'star' : 'star-outline'} size={44} color={n <= stars ? C.accent : C.muted} />
+                </Pressable>
+              ))}
+            </View>
+            <Text style={s.rvWord}>{stars ? RATE_WORDS[stars - 1] : 'Tocca le stelle per valutare'}</Text>
+
+            {stars > 0 && (link ? (
+              <>
+                <Text style={[s.muted, { textAlign: 'center', marginTop: 16 }]}>
+                  Grazie! Raccontalo anche su Google: scegli le stelle e scrivi due righe, aiuti altri clienti a trovarci.
+                </Text>
+                <Pressable style={[s.btn, s.rvGo]} onPress={() => { openUrl(link); onClose(); }} accessibilityRole="button">
+                  <Ionicons name="logo-google" size={18} color={C.onAccent} />
+                  <Text style={s.btnT}>Scrivi la recensione su Google</Text>
+                </Pressable>
+                {stars <= 3 && a.salons?.whatsapp ? (
+                  <Pressable style={s.rvLink} onPress={() => openUrl(waUrl(a.salons.whatsapp, `Ciao, sono stato da voi (${a.services?.name}) e vorrei dirvi una cosa.`))}>
+                    <Text style={s.link}>Preferisci scrivere al salone? WhatsApp</Text>
+                  </Pressable>
+                ) : null}
+                <Pressable style={s.rvLink} onPress={onClose}><Text style={[s.link, { color: C.muted }]}>Non ora</Text></Pressable>
+              </>
+            ) : (
+              <>
+                <Text style={[s.muted, { textAlign: 'center', marginTop: 16 }]}>Grazie! La tua valutazione ci aiuta a migliorare.</Text>
+                <Pressable style={s.btn} onPress={onClose} accessibilityRole="button"><Text style={s.btnT}>Chiudi</Text></Pressable>
+              </>
+            ))}
+          </>
+        )}
+      </View>
+    </Modal>
+  );
+}
+
 // ───────── I miei appuntamenti ─────────
-function Mine({ session, refreshKey }: { session: Session; refreshKey: number }) {
+function Mine({ session, refreshKey, focus, onFocusDone }: { session: Session; refreshKey: number; focus?: string | null; onFocusDone?: () => void }) {
   const [rows, setRows] = useState<any[]>([]);
+  const [toRate, setToRate] = useState<any[]>([]);                       // appuntamenti conclusi da valutare
+  const [rate, setRate] = useState<{ a: any; stars: number } | null>(null);
 
   const load = useCallback(async () => {
     const { data } = await supabase
@@ -1506,9 +1593,31 @@ function Mine({ session, refreshKey }: { session: Session; refreshKey: number })
       .gte('starts_at', new Date().toISOString())
       .order('starts_at');
     setRows(data ?? []);
+
+    // Completati negli ultimi 14 giorni e non ancora valutati. Senza la migrazione delle recensioni la query dà errore: nessuna scheda.
+    const r: any = await supabase
+      .from('appointments')
+      .select(RATE_COLS)
+      .eq('customer_id', session.user.id)
+      .eq('status', 'completed')
+      .is('rating', null)
+      .gte('starts_at', new Date(Date.now() - 14 * 86400e3).toISOString())
+      .order('starts_at', { ascending: false })
+      .limit(3);
+    setToRate(r.error ? [] : r.data ?? []);
   }, [session]);
 
   useEffect(() => { load(); }, [load, refreshKey]);
+
+  // Tocco sulla notifica «Com'è andata?»: apre subito la valutazione di quell'appuntamento
+  useEffect(() => {
+    if (!focus) return;
+    (async () => {
+      const r: any = await supabase.from('appointments').select(RATE_COLS).eq('id', focus).eq('customer_id', session.user.id).maybeSingle();
+      if (r.data && r.data.rating == null) setRate({ a: r.data, stars: 0 });
+      onFocusDone?.();
+    })();
+  }, [focus]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const cancel = (id: string) =>
     Alert.alert('Disdire l’appuntamento?', 'Il posto tornerà disponibile per altri clienti.', [
@@ -1527,6 +1636,21 @@ function Mine({ session, refreshKey }: { session: Session; refreshKey: number })
   return (
     <ScrollView contentContainerStyle={s.pad}>
       <PageTitle t="La tua agenda" />
+
+      {toRate.map((r) => (
+        <View key={r.id} style={s.rvCard}>
+          <Text style={s.rowT}>Com’è andata da {r.salons?.name}?</Text>
+          <Text style={s.rowSub}>{r.services?.name} con {r.staff?.name}, {dayWord(r.starts_at, r.salons?.timezone)}</Text>
+          <View style={s.rvMini}>
+            {[1, 2, 3, 4, 5].map((n) => (
+              <Pressable key={n} onPress={() => setRate({ a: r, stars: n })} hitSlop={6} accessibilityRole="button" accessibilityLabel={`Valuta ${n} ${n === 1 ? 'stella' : 'stelle'}`}>
+                <Ionicons name="star-outline" size={32} color={C.accentText} />
+              </Pressable>
+            ))}
+          </View>
+        </View>
+      ))}
+
       {rows.length === 0 && <Text style={[s.muted, { marginTop: 14 }]}>Nessun appuntamento in programma. Prenota il tuo prossimo taglio dalla scheda Prenota.</Text>}
       {rows.map((r) => (
         <View key={r.id} style={[s.card, { flexDirection: 'row', gap: 14, marginTop: 14 }]}>
@@ -1544,6 +1668,8 @@ function Mine({ session, refreshKey }: { session: Session; refreshKey: number })
         </View>
       ))}
       <Orders uid={session.user.id} />
+
+      <ReviewSheet a={rate?.a ?? null} initial={rate?.stars ?? 0} onClose={() => setRate(null)} onSaved={load} />
     </ScrollView>
   );
 }
@@ -2825,17 +2951,24 @@ function MapCard({ address, lat, lng, onLocated }: { address: string; lat?: numb
   );
 }
 
-// Solo il titolare: numeri di telefono e WhatsApp della sede
+// Solo il titolare: numeri di telefono e WhatsApp della sede, e collegamento alle recensioni Google
 function ContactEditor({ salon, onSaved }: { salon: any; onSaved: () => void }) {
   const [phone, setPhone] = useState(salon.phone ?? '');
   const [wa, setWa] = useState(salon.whatsapp ?? '');
+  const [g, setG] = useState(salon.google_review_url ?? '');
   const [busy, setBusy] = useState(false);
   const save = async () => {
+    if (g.trim() && !googleReviewUrl(g)) {
+      return Alert.alert('Collegamento Google non valido', 'Incolla il Place ID della sede (inizia per ChIJ…) oppure il link per le recensioni che Google ti mostra nel profilo dell’attività.');
+    }
     setBusy(true);
-    const { error } = await supabase.from('salons').update({ phone: phone.trim() || null, whatsapp: wa.trim() || null }).eq('id', salon.id);
+    const base = { phone: phone.trim() || null, whatsapp: wa.trim() || null };
+    let { error } = await supabase.from('salons').update({ ...base, google_review_url: g.trim() || null }).eq('id', salon.id);
+    let noReviews = false;
+    if (error) { noReviews = true; ({ error } = await supabase.from('salons').update(base).eq('id', salon.id)); } // recensioni non ancora migrate: salvo almeno i numeri
     setBusy(false);
     if (error) return Alert.alert('Non riesco a salvare', 'Controlla di aver eseguito la migrazione v4 e di essere entrato come titolare.');
-    Alert.alert('Salvato', 'I contatti della sede sono aggiornati.');
+    Alert.alert('Salvato', noReviews && g.trim() ? 'Contatti aggiornati. Il collegamento a Google non è stato salvato: esegui prima l’ultimo blocco di setup.sql (recensioni).' : 'I contatti della sede sono aggiornati.');
     onSaved();
   };
   return (
@@ -2843,6 +2976,7 @@ function ContactEditor({ salon, onSaved }: { salon: any; onSaved: () => void }) 
       <Text style={s.rowT}>Modifica contatti (solo titolare)</Text>
       <Field label="Telefono" value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="+39 06 1234567" />
       <Field label="WhatsApp" value={wa} onChangeText={setWa} keyboardType="phone-pad" placeholder="+39 333 1234567" />
+      <Field label="Recensioni Google (Place ID o link)" value={g} onChangeText={setG} autoCapitalize="none" autoCorrect={false} placeholder="ChIJ… oppure https://g.page/r/…/review" />
       <Pressable style={[s.btn, busy && { opacity: 0.6 }]} onPress={save} disabled={busy}>
         <Text style={s.btnT}>{busy ? 'Un attimo…' : 'Salva contatti'}</Text>
       </Pressable>
@@ -2860,7 +2994,7 @@ function Contacts({ uid, canPrefer, canEdit }: { uid?: string; canPrefer: boolea
   const load = useCallback(async () => {
     // dalle colonne più recenti a quelle di base, se qualche migrazione non è ancora stata eseguita
     let q: any = null;
-    for (const cols of ['id,name,address,timezone,phone,whatsapp,email,lat,lng', 'id,name,address,timezone,phone,whatsapp', 'id,name,address,timezone']) {
+    for (const cols of ['id,name,address,timezone,phone,whatsapp,email,lat,lng,google_review_url', 'id,name,address,timezone,phone,whatsapp,email,lat,lng', 'id,name,address,timezone,phone,whatsapp', 'id,name,address,timezone']) {
       q = await supabase.from('salons').select(cols).eq('active', true).order('name');
       if (!q.error) break;
     }
@@ -2950,6 +3084,12 @@ function Contacts({ uid, canPrefer, canEdit }: { uid?: string; canPrefer: boolea
           <Pressable style={s.infoRow} onPress={() => openUrl(`mailto:${sel.email}`)}>
             <Ionicons name="mail-outline" size={18} color={C.accentText} />
             <Text style={s.infoT}>{sel.email}</Text>
+          </Pressable>
+        ) : null}
+        {googleReviewUrl(sel.google_review_url) ? (
+          <Pressable style={s.infoRow} onPress={() => openUrl(googleReviewUrl(sel.google_review_url)!)} accessibilityRole="link">
+            <Ionicons name="logo-google" size={18} color={C.accentText} />
+            <Text style={[s.infoT, { color: C.accentText }]}>Scrivi una recensione su Google</Text>
           </Pressable>
         ) : null}
         {canPrefer && (
@@ -3205,6 +3345,7 @@ export default function App() {
   const [tab, setTab] = useState<Tab>('book');
   const [key, setKey] = useState(0);
   const [cart, setCart] = useState<Cart>({});
+  const [reviewFocus, setReviewFocus] = useState<string | null>(null); // appuntamento da valutare, aperto dalla notifica
   const uid = session?.user.id;
   const desk = useDesk();
 
@@ -3250,10 +3391,21 @@ export default function App() {
         setStaff({ salonIds: (data ?? []).map((r: any) => r.salon_id) });
         setTab('myday');
       } else {
-        setTab('book');
+        setTab((t) => (t === 'mine' ? t : 'book')); // se l'app è stata aperta da «Com'è andata?» resta sull'agenda
       }
       if (!roleErr) setRoleReady(true);
     })();
+  }, [uid, hold]);
+
+  // Tocco su una notifica: «Com'è andata?» porta all'agenda e apre la valutazione
+  useEffect(() => {
+    if (!uid || hold) return;
+    return onNotificationOpen((d) => {
+      if (d?.type === 'review' && d.appointmentId) {
+        setTab('mine');
+        setReviewFocus(String(d.appointmentId));
+      }
+    });
   }, [uid, hold]);
 
   // Ritorno dal pagamento (versione web)
@@ -3312,7 +3464,7 @@ export default function App() {
                 {tab === 'shop' && <Shop cart={cart} setCart={setCart} canEdit={owner} />}
                 {tab === 'team' && <Barbers canEdit={owner} uid={staff ? undefined : uid} />}
                 {tab === 'contacts' && <Contacts uid={uid} canPrefer={!staff} canEdit={owner} />}
-                {tab === 'mine' && <Mine session={session} refreshKey={key} />}
+                {tab === 'mine' && <Mine session={session} refreshKey={key} focus={reviewFocus} onFocusDone={() => setReviewFocus(null)} />}
                 {tab === 'profile' && <Profile session={session} />}
                 {tab === 'myday' && staff && uid && <MyDay uid={uid} />}
                 {tab === 'agenda' && staff && <Agenda staff={staff} />}
@@ -3625,6 +3777,14 @@ function makeStyles() {
   calLegend: { flexDirection: 'row', alignItems: 'center', marginTop: 8, paddingHorizontal: 4 },
   calSlotsTitle: { color: C.text, fontSize: 22, fontWeight: '700', letterSpacing: -0.4, marginTop: 26, marginBottom: 12 },
   calBar: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 18, paddingTop: 12, borderTopWidth: HL, borderTopColor: C.line, backgroundColor: C.calBar },
+
+  // Valutazione a fine servizio
+  rvCard: { backgroundColor: C.accentSoft, borderRadius: 16, padding: 16, marginTop: 14 },
+  rvMini: { flexDirection: 'row', gap: 10, marginTop: 12 },
+  rvStars: { flexDirection: 'row', justifyContent: 'center', gap: 10, marginTop: 22 },
+  rvWord: { color: C.text, fontSize: 17, fontWeight: '600', textAlign: 'center', marginTop: 10, minHeight: 22 },
+  rvGo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
+  rvLink: { alignSelf: 'center', paddingVertical: 10, marginTop: 4 },
 
   // Profilo
   profName: { color: C.text, fontSize: 21, fontWeight: '600', letterSpacing: -0.4 },
