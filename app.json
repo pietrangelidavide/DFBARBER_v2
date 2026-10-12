@@ -18,7 +18,7 @@
       "package": "it.dfbarbershop.prenota",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0C0C0C"
+        "backgroundColor": "#C4A868"
       }
     },
     "web": {
@@ -29,11 +29,11 @@
         "expo-splash-screen",
         {
           "image": "./assets/splash-icon.png",
-          "backgroundColor": "#0C0C0C",
-          "imageWidth": 220,
+          "backgroundColor": "#000000",
+          "imageWidth": 200,
           "dark": {
             "image": "./assets/splash-icon.png",
-            "backgroundColor": "#0C0C0C"
+            "backgroundColor": "#000000"
           }
         }
       ],
@@ -45,6 +45,6 @@
         }
       ]
     ],
-    "backgroundColor": "#0C0C0C"
+    "backgroundColor": "#000000"
   }
 }

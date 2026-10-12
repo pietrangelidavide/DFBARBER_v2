@@ -21,8 +21,7 @@ npm install
 npx expo install react react-native expo-constants expo-device expo-notifications expo-image-picker \
   expo-linear-gradient expo-blur expo-status-bar expo-font expo-splash-screen expo-system-ui \
   @expo/vector-icons react-native-safe-area-context @react-native-async-storage/async-storage \
-  react-native-url-polyfill @supabase/supabase-js \
-  @expo-google-fonts/bebas-neue @expo-google-fonts/cormorant-garamond
+  react-native-url-polyfill @supabase/supabase-js
 
 npx expo prebuild --platform android --no-install --clean
 

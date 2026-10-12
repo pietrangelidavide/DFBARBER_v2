@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { LayoutChangeEvent, StyleProp, TextInputProps, ViewStyle } from 'react-native';
-import { AccessibilityInfo, ActivityIndicator, Alert as RNAlert, Animated, Easing, Image, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useColorScheme, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Alert as RNAlert, Animated, Easing, Image, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useColorScheme, useWindowDimensions, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -30,46 +30,37 @@ const Alert: typeof RNAlert =
     : RNAlert;
 
 // ───────── Tema chiaro e scuro ─────────
-// Identità ricavata dal sito dfbarbershop.com: nero caldo e avorio, un solo oro (#C4A868), filetti sottili,
-// angoli netti con le "parentesi" agli spigoli, titoli condensati e testi piccoli spaziati.
-// Scuro: come le pagine "Benvenuto" e "Le nostre sedi". Chiaro: come lo Shop. Il tema chiaro usa un oro più scuro per i testi piccoli (leggibilità).
+// Stile Apple (iOS): livelli di grigio piatti, niente bordi né sfumature, carattere di sistema e un solo oro (#C4A868) come colore d'accento.
+// Scuro: nero con celle #1C1C1E, come le Impostazioni dell'iPhone. Chiaro: sfondo #F2F2F7 con celle bianche.
+// Il tema chiaro usa un oro più scuro per i testi piccoli (leggibilità).
 // Sul telefono l'app segue il tema del sistema; sul web si sceglie fra Automatico, Chiaro e Scuro (la scelta resta nel browser).
 const DARK = {
-  bg: '#0C0C0C', card: '#14110D', card2: '#1B1712', line: '#2B251B',
-  text: '#F4F1E8', muted: '#9C9585',
-  accent: '#C4A868', accent2: '#A88B4A', accentSoft: 'rgba(196,168,104,0.12)',
+  bg: '#000000', card: '#1C1C1E', card2: '#2C2C2E', line: '#38383A',
+  text: '#FFFFFF', muted: '#98989F',
+  accent: '#C4A868', accentSoft: 'rgba(196,168,104,0.16)',
   accentText: '#C4A868',            // oro per testi e icone
-  accentBorder: '#C4A868',          // oro per i bordi di selezione
-  accentLine: 'rgba(196,168,104,0.32)', accentLine2: 'rgba(196,168,104,0.6)',
   onAccent: '#14110D',              // testo sopra l'oro
-  danger: '#FF7A6E', dangerSoft: 'rgba(255,122,110,0.12)', ok: '#5BC48A', series2: '#8C877A',
-  // sfumature di sfondo (quasi piatte: il sito è sobrio)
-  heroA: '#17130D', heroB: '#0C0C0C', welA: '#17130D', tabEnd: '#0C0C0C',
-  tileA: '#F4F0E8', tileB: '#EDE7DA', photoA: '#1F1A12', photoB: '#14110D', barberA: '#1F1A12', barberB: '#14110D',
-  loyA: '#1B160D', loyB: '#0F0D09', mapA: '#14120D', mapB: '#0A0907',
-  // ombre, calendario, pagina iniziale
-  scrim: 'rgba(0,0,0,0.7)', shadow: '#000000', shadowO: 0.5,
-  calCard: '#14110D', calBar: 'rgba(12,12,12,0.96)', calOff: 'rgba(156,149,133,0.38)',
-  welTitle: '#C4A868', welLine: 'rgba(196,168,104,0.7)',
-  // alias usati più in basso nel codice
-  ink: '#F4F1E8', paper: '#0C0C0C', steel: '#9C9585', red: '#FF7A6E',
+  danger: '#FF453A', dangerSoft: 'rgba(255,69,58,0.16)', ok: '#30D158', series2: '#8E8E93',
+  bar: 'rgba(22,22,24,0.94)',       // barre in alto e in basso
+  seg: 'rgba(255,255,255,0.16)',    // voce scelta nei selettori a segmenti
+  slot: '#2C2C2E',                  // orario libero nell'agenda
+  tileA: '#F5F5F7', loyA: '#1C1C1E', mapA: '#1C1C1E',
+  scrim: 'rgba(0,0,0,0.6)', shadow: '#000000', shadowO: 0.45,
+  calCard: '#1C1C1E', calBar: 'rgba(0,0,0,0.92)', calOff: 'rgba(152,152,159,0.4)',
 };
 const LIGHT: typeof DARK = {
-  bg: '#F8F8F4', card: '#FFFFFF', card2: '#F4F0E8', line: '#E6DFCB',
-  text: '#0C0C0C', muted: '#5C5C5C',
-  accent: '#C4A868', accent2: '#A88B4A', accentSoft: 'rgba(196,168,104,0.16)',
+  bg: '#F2F2F7', card: '#FFFFFF', card2: '#E5E5EA', line: '#D1D1D6',
+  text: '#000000', muted: '#6C6C70',
+  accent: '#C4A868', accentSoft: 'rgba(196,168,104,0.2)',
   accentText: '#7F6325',
-  accentBorder: '#A8873D',
-  accentLine: 'rgba(168,135,61,0.38)', accentLine2: 'rgba(168,135,61,0.7)',
   onAccent: '#14110D',
-  danger: '#B3302A', dangerSoft: 'rgba(179,48,42,0.08)', ok: '#17803F', series2: '#746E5D',
-  heroA: '#F4F0E8', heroB: '#F8F8F4', welA: '#17130D', tabEnd: '#F8F8F4',
-  tileA: '#F4F0E8', tileB: '#EDE7DA', photoA: '#EDE7DA', photoB: '#E4DCC8', barberA: '#EDE7DA', barberB: '#E4DCC8',
-  loyA: '#FFFFFF', loyB: '#F4F0E8', mapA: '#EFE9DB', mapB: '#E4DCC8',
-  scrim: 'rgba(12,12,12,0.5)', shadow: '#3A2D0B', shadowO: 0.12,
-  calCard: '#FFFFFF', calBar: 'rgba(248,248,244,0.96)', calOff: 'rgba(92,92,92,0.35)',
-  welTitle: '#C4A868', welLine: 'rgba(196,168,104,0.8)',
-  ink: '#0C0C0C', paper: '#F8F8F4', steel: '#5C5C5C', red: '#B3302A',
+  danger: '#D70015', dangerSoft: 'rgba(215,0,21,0.1)', ok: '#248A3D', series2: '#8E8E93',
+  bar: 'rgba(249,249,249,0.94)',
+  seg: '#FFFFFF',
+  slot: '#F2F2F7',
+  tileA: '#F5F5F7', loyA: '#FFFFFF', mapA: '#E5E5EA',
+  scrim: 'rgba(0,0,0,0.4)', shadow: '#000000', shadowO: 0.12,
+  calCard: '#FFFFFF', calBar: 'rgba(242,242,247,0.94)', calOff: 'rgba(60,60,67,0.3)',
 };
 type Mode = 'dark' | 'light';
 type ThemePref = 'auto' | 'light' | 'dark';
@@ -153,98 +144,36 @@ const redirectTo: string | undefined = Platform.OS === 'web' ? (globalThis as an
 const openUrl = (url: string) => { Linking.openURL(url).catch(() => Alert.alert('Non riesco ad aprire il collegamento')); };
 
 // ───────── Caratteri ─────────
-// Titoli: Bebas Neue (condensato, come sul sito). Frasi in corsivo: Cormorant Garamond. Testo normale: carattere di sistema.
-// Se i pacchetti dei caratteri non sono installati l'app funziona lo stesso, con i caratteri di sistema.
-const SERIF = Platform.select({ ios: 'Georgia', android: 'serif', default: 'Georgia, "Times New Roman", serif' }) as string;
-let useFontsHook: any = null;
-let BRAND_FONTS: any = null;
-try {
-  useFontsHook = require('expo-font').useFonts;
-  const bb = require('@expo-google-fonts/bebas-neue');
-  const cg = require('@expo-google-fonts/cormorant-garamond');
-  BRAND_FONTS = { BebasNeue_400Regular: bb.BebasNeue_400Regular, CormorantGaramond_500Medium_Italic: cg.CormorantGaramond_500Medium_Italic };
-} catch {
-  // pacchetti assenti
-}
-// Famiglie realmente caricate (vuote finché non sono pronte, o se i pacchetti mancano)
-const FONT: { display?: string; italic?: string } = {};
-// true quando si può disegnare: caratteri pronti, errore di caricamento o pacchetti assenti
-function useBrandFont(): boolean {
-  const [ok, err] = useFontsHook && BRAND_FONTS ? useFontsHook(BRAND_FONTS) : [false, null];
-  if (ok && BRAND_FONTS && !FONT.display) {
-    FONT.display = 'BebasNeue_400Regular';
-    FONT.italic = 'CormorantGaramond_500Medium_Italic';
-    s = makeStyles(); // ricrea gli stili con i caratteri ora disponibili
-  }
-  return !!ok || !!err || !BRAND_FONTS;
-}
-// Stili di testo ricorrenti
-const disp = (size: number, track = 1) =>
-  FONT.display
-    ? { fontFamily: FONT.display, fontSize: size, letterSpacing: track, textTransform: 'uppercase' as const }
-    : { fontWeight: '800' as const, fontSize: Math.round(size * 0.8), letterSpacing: track * 0.6, textTransform: 'uppercase' as const };
-const ital = (size: number) =>
-  FONT.italic ? { fontFamily: FONT.italic, fontSize: size } : { fontFamily: SERIF, fontStyle: 'italic' as const, fontSize: Math.round(size * 0.9) };
-const lab = (size = 11, track = 2.6) => ({ fontSize: size, fontWeight: '600' as const, letterSpacing: track, textTransform: 'uppercase' as const });
+// Come su iPhone: carattere di sistema ovunque (San Francisco su iOS, Roboto su Android, quello del dispositivo sul web). Nessun pacchetto da installare.
 
 type Cart = Record<string, { p: any; qty: number }>;
 type StaffScope = { salonIds: string[] | null }; // null = tutte le sedi (titolare)
 type Tab = 'book' | 'shop' | 'team' | 'contacts' | 'profile' | 'mine' | 'myday' | 'agenda' | 'new' | 'off' | 'orders' | 'control' | 'more';
 
-// ───────── Elementi di stile del sito ─────────
-// Pannello piatto con filetto sottile (al posto del vecchio "vetro")
+// ───────── Elementi comuni (stile Apple) ─────────
+// Pannello piatto, come una cella delle Impostazioni
 function Panel({ children, style }: { children?: ReactNode; style?: StyleProp<ViewStyle>; radius?: number; tint?: string }) {
-  return <View style={[{ backgroundColor: C.card, borderWidth: 1, borderColor: C.line }, style]}>{children}</View>;
+  return <View style={[{ backgroundColor: C.card, borderRadius: 14 }, style]}>{children}</View>;
 }
 
-// Parentesi agli spigoli: il motivo ricorrente del sito (quattro "L" sottili)
-function Brackets({ size = 16, inset = 10, color, w = 1 }: { size?: number; inset?: number; color?: string; w?: number }) {
-  const c = color ?? C.accentLine2;
-  const b = { position: 'absolute' as const, width: size, height: size, borderColor: c };
+// Marchio "DF": tessera dorata con angoli arrotondati, come l'icona di un'app
+function DFMark({ size = 40 }: { size?: number }) {
   return (
-    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-      <View style={[b, { top: inset, left: inset, borderTopWidth: w, borderLeftWidth: w }]} />
-      <View style={[b, { top: inset, right: inset, borderTopWidth: w, borderRightWidth: w }]} />
-      <View style={[b, { bottom: inset, left: inset, borderBottomWidth: w, borderLeftWidth: w }]} />
-      <View style={[b, { bottom: inset, right: inset, borderBottomWidth: w, borderRightWidth: w }]} />
+    <View
+      style={{ width: size, height: size, borderRadius: Math.round(size * 0.24), backgroundColor: '#C4A868', alignItems: 'center', justifyContent: 'center' }}
+      accessible
+      accessibilityLabel="DF Barbershop"
+    >
+      <Text allowFontScaling={false} style={{ color: '#14110D', fontSize: Math.round(size * 0.42), lineHeight: Math.round(size * 0.52), fontWeight: '800', letterSpacing: -size * 0.02 }}>DF</Text>
     </View>
   );
 }
 
-// Marchio "DF" fra le parentesi (come nella testata del sito)
-function DFMark({ size = 40, color }: { size?: number; color?: string }) {
-  const c = color ?? C.accentText;
-  return (
-    <View style={{ width: Math.round(size * 1.7), height: size, alignItems: 'center', justifyContent: 'center' }} accessible accessibilityLabel="DF Barbershop">
-      <Brackets size={Math.round(size * 0.2)} inset={0} color={c} />
-      <Text allowFontScaling={false} style={[disp(size * 0.7, 0), { color: c, lineHeight: Math.round(size * 0.8) }]}>DF</Text>
-    </View>
-  );
-}
-
-// Etichetta con filetto: "CATALOGO ————" oppure, al centro, "—— CATALOGO ——"
-function Eyebrow({ t, center }: { t: string; center?: boolean }) {
-  return (
-    <View style={[s.eyebrowRow, center && { justifyContent: 'center' }]}>
-      {center && <View style={s.eyebrowLine} />}
-      <Text style={s.eyebrow}>{t}</Text>
-      <View style={[s.eyebrowLine, !center && { flex: 1 }]} />
-    </View>
-  );
-}
-
-// Titolo di pagina: etichetta, titolo condensato (l'ultima parola in oro), filetto e frase in corsivo
-function PageTitle({ t, eyebrow, sub }: { t: string; eyebrow?: string; sub?: string }) {
-  const words = t.split(' ');
-  const last = words.length > 1 ? words.pop() : null;
+// Titolo di pagina: grande, in grassetto, con una frase sotto
+function PageTitle({ t, sub }: { t: string; sub?: string }) {
   return (
     <View style={{ marginBottom: 4 }}>
-      {eyebrow ? <Eyebrow t={eyebrow} /> : null}
-      <Text style={s.h1} accessibilityRole="header">
-        {words.join(' ')}
-        {last ? <Text style={{ color: C.accentText }}> {last}</Text> : null}
-      </Text>
-      <View style={s.rule} />
+      <Text style={s.h1} accessibilityRole="header">{t}</Text>
       {sub ? <Text style={s.lead}>{sub}</Text> : null}
     </View>
   );
@@ -258,35 +187,30 @@ function Chip({ label, sub, on, onPress }: { label: string; sub?: string | null;
     </Pressable>
   );
 }
-const Title = ({ t }: { t: string }) => (
-  <View style={s.titleRow}>
-    <Text style={s.h2} accessibilityRole="header">{t}</Text>
-    <View style={s.titleLine} />
-  </View>
-);
+const Title = ({ t }: { t: string }) => <Text style={[s.h2, { marginTop: 26, marginBottom: 10 }]} accessibilityRole="header">{t}</Text>;
 
-// Pulsante piccolo quadrato (indietro, menu, frecce del calendario…)
+// Pulsante rotondo (indietro, menu, frecce del calendario…)
 const IconBtn = ({ name, onPress, label, onDark }: { name: string; onPress: () => void; label: string; onDark?: boolean }) => (
-  <Pressable onPress={onPress} hitSlop={10} accessibilityRole="button" accessibilityLabel={label} style={[s.logoutBtn, onDark && { backgroundColor: 'rgba(12,12,12,0.55)', borderColor: 'rgba(196,168,104,0.5)' }]}>
-    <Ionicons name={name as any} size={20} color={onDark ? '#F4F1E8' : C.text} />
+  <Pressable onPress={onPress} hitSlop={10} accessibilityRole="button" accessibilityLabel={label} style={[s.logoutBtn, onDark && { backgroundColor: 'rgba(0,0,0,0.45)' }]}>
+    <Ionicons name={name as any} size={20} color={onDark ? '#FFFFFF' : C.accentText} />
   </Pressable>
 );
 
-// Scelta del tema (solo web: sul telefono si segue il sistema)
+// Scelta del tema (solo web: sul telefono si segue il sistema), come un selettore a segmenti di iOS
 const THEME_LABEL: Record<ThemePref, string> = { auto: 'Automatico', light: 'Chiaro', dark: 'Scuro' };
 function ThemePicker() {
   const [pref, setPref] = useThemePref();
   return (
     <>
       <Title t="Aspetto" />
-      <View style={s.card}>
-        <View style={s.wrap}>
-          {(['auto', 'light', 'dark'] as ThemePref[]).map((id) => (
-            <Chip key={id} label={THEME_LABEL[id]} on={pref === id} onPress={() => setPref(id)} />
-          ))}
-        </View>
-        <Text style={[s.rowSub, { marginTop: 12 }]}>Automatico segue il tema del tuo dispositivo. La scelta resta salvata su questo browser.</Text>
+      <View style={s.seg}>
+        {(['auto', 'light', 'dark'] as ThemePref[]).map((id) => (
+          <Pressable key={id} onPress={() => setPref(id)} style={[s.segItem, pref === id && s.segItemOn]} accessibilityRole="button" accessibilityState={{ selected: pref === id }}>
+            <Text style={[s.segT, pref === id && s.segTOn]}>{THEME_LABEL[id]}</Text>
+          </Pressable>
+        ))}
       </View>
+      <Text style={[s.rowSub, { marginTop: 10, marginLeft: 4 }]}>Automatico segue il tema del tuo dispositivo. La scelta resta salvata su questo browser.</Text>
     </>
   );
 }
@@ -305,12 +229,14 @@ function ThemeToggle({ top, onDark }: { top: number; onDark?: boolean }) {
 const Step = ({ n, t, done }: { n: number; t: string; done?: boolean }) => (
   <View style={s.stepRow}>
     <View style={[s.stepNum, done && s.stepNumOn]}>
-      {done ? <Ionicons name="checkmark" size={16} color={C.onAccent} /> : <Text style={s.stepNumT}>{String(n).padStart(2, '0')}</Text>}
+      {done ? <Ionicons name="checkmark" size={16} color={C.onAccent} /> : <Text style={s.stepNumT}>{n}</Text>}
     </View>
     <Text style={s.h2} accessibilityRole="header">{t}</Text>
-    <View style={s.titleLine} />
   </View>
 );
+
+// Icone delle schede: piene quando la scheda è attiva (come su iPhone)
+const tabIcon = (icon: string, on: boolean) => (on ? icon.replace('-outline', '') : icon) as any;
 
 // Web su schermo largo (computer): menu in alto al posto della barra in basso e contenuto centrato.
 // Sul telefono e sul tablet (anche in orizzontale) resta la barra in basso.
@@ -321,13 +247,12 @@ function Header({ onLogout, onMenu }: { onLogout: () => void; onMenu?: () => voi
   return (
     <View style={s.headerWrap}>
       <View style={s.header}>
-        <DFMark size={38} />
-        <View style={s.headDiv} />
+        <DFMark size={32} />
         <View style={{ flex: 1 }}>
           <Text style={s.headT} numberOfLines={1}>Daniele Fichera</Text>
           <Text style={s.headSub} numberOfLines={1}>Barber Shop · Roma</Text>
         </View>
-        <IconBtn name={onMenu ? 'person-outline' : 'log-out-outline'} onPress={onMenu ?? onLogout} label={onMenu ? 'Account' : 'Esci'} />
+        <IconBtn name={onMenu ? 'ellipsis-horizontal' : 'log-out-outline'} onPress={onMenu ?? onLogout} label={onMenu ? 'Account' : 'Esci'} />
       </View>
     </View>
   );
@@ -473,7 +398,7 @@ function Shop({ cart, setCart, canEdit }: { cart: Cart; setCart: (c: Cart) => vo
   return (
     <View style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={[s.pad, { paddingBottom: count ? 110 : 40 }]}>
-        <PageTitle eyebrow="01 · Shop" t="Il nostro Shop" sub={`${items.length} prodotti scelti dai nostri barbieri`} />
+        <PageTitle t="Il nostro Shop" sub={`${items.length} prodotti scelti dai nostri barbieri`} />
         <View style={[s.grid, desk && s.grid3]}>
           {items.map((p) => (
             <Pressable key={p.id} style={[s.product, desk && s.col3]} onPress={() => openProduct(p)} accessibilityRole="button" accessibilityLabel={`${p.name}, ${eur(p.price_cents)}`}>
@@ -492,7 +417,6 @@ function Shop({ cart, setCart, canEdit }: { cart: Cart; setCart: (c: Cart) => vo
                   <Ionicons name="add" size={18} color={C.onAccent} />
                 </Pressable>
               </View>
-              <Brackets size={11} inset={6} />
             </Pressable>
           ))}
         </View>
@@ -503,7 +427,7 @@ function Shop({ cart, setCart, canEdit }: { cart: Cart; setCart: (c: Cart) => vo
           <Ionicons name="bag-handle-outline" size={20} color={C.onAccent} />
           <Text style={[s.cartT, { flex: 1 }]}>Carrello ({count})</Text>
           <Text style={s.cartT}>{eur(total)}</Text>
-          <Ionicons name="arrow-forward" size={18} color={C.onAccent} />
+          <Ionicons name="chevron-forward" size={18} color={C.onAccent} />
         </Pressable>
       )}
 
@@ -511,6 +435,7 @@ function Shop({ cart, setCart, canEdit }: { cart: Cart; setCart: (c: Cart) => vo
       <Modal visible={!!open} transparent animationType="slide" onRequestClose={() => setOpen(null)}>
         <Pressable style={s.backdrop} onPress={() => setOpen(null)} />
         <View style={s.sheet}>
+<View style={s.grab} />
           {open && (
             <>
               <View style={[s.productTileBig, !open.image_url && { backgroundColor: C.card2 }]}>
@@ -519,7 +444,6 @@ function Shop({ cart, setCart, canEdit }: { cart: Cart; setCart: (c: Cart) => vo
                 ) : (
                   <Ionicons name="water-outline" size={56} color={C.accentText} />
                 )}
-                <Brackets size={14} inset={8} />
               </View>
               <Text style={s.h1}>{open.name}</Text>
               <Text style={[s.price, { fontSize: 32 }]}>{eur(open.price_cents)}</Text>
@@ -562,8 +486,8 @@ function Shop({ cart, setCart, canEdit }: { cart: Cart; setCart: (c: Cart) => vo
       <Modal visible={checkout && count > 0} transparent animationType="slide" onRequestClose={() => setCheckout(false)}>
         <Pressable style={s.backdrop} onPress={() => setCheckout(false)} />
         <View style={s.sheet}>
+<View style={s.grab} />
           <Text style={s.h1}>Il tuo carrello</Text>
-          <View style={s.rule} />
           <ScrollView style={{ maxHeight: 260, marginTop: 10 }}>
             {lines.map((l) => (
               <View key={l.p.id} style={[s.row, { marginBottom: 6 }]}>
@@ -611,15 +535,15 @@ function Shop({ cart, setCart, canEdit }: { cart: Cart; setCart: (c: Cart) => vo
 // ───────── Accesso e registrazione ─────────
 type Done = { email: string; first: string; last: string; phone: string; active: boolean };
 
-// Campo con etichetta, errore e (facoltativo) elemento a destra
+// Campo con etichetta, errore e (facoltativo) elemento a destra: lo usano Profilo e Contatti
 function Field({ label, error, right, onFocus, onBlur, ...p }: TextInputProps & { label: string; error?: string | null; right?: ReactNode }) {
   const [focus, setFocus] = useState(false);
   return (
-    <View style={{ marginTop: 16 }}>
+    <View style={{ marginTop: 14 }}>
       <Text style={s.fieldLabel}>{label}</Text>
       <View style={[s.fieldBox, focus && s.fieldFocus, !!error && { borderColor: C.danger }]}>
         <TextInput
-          style={s.fieldInput}
+          style={[s.fieldInput, Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : null]}
           placeholderTextColor={C.muted}
           {...p}
           onFocus={(e) => { setFocus(true); onFocus?.(e); }}
@@ -633,126 +557,114 @@ function Field({ label, error, right, onFocus, onBlur, ...p }: TextInputProps & 
 }
 
 // ───────── Pagina iniziale ─────────
-// Se il telefono ha "Riduci animazioni" attivo, le animazioni continue restano ferme
-function useCalm() {
-  const [calm, setCalm] = useState(false);
-  useEffect(() => { AccessibilityInfo.isReduceMotionEnabled().then(setCalm).catch(() => {}); }, []);
-  return calm;
+const clampN = (lo: number, v: number, hi: number) => Math.max(lo, Math.min(hi, v));
+
+// Sfondo di Benvenuto e accesso: la foto del salone, scurita. È sempre scura, anche con il tema chiaro.
+function Backdrop() {
+  return (
+    <>
+      <Image source={require('./assets/hero.jpg')} style={StyleSheet.absoluteFill} resizeMode="cover" />
+      <LinearGradient pointerEvents="none" colors={['rgba(0,0,0,0.5)', 'rgba(0,0,0,0.62)', 'rgba(0,0,0,0.86)']} locations={[0, 0.5, 1]} style={StyleSheet.absoluteFill} />
+    </>
+  );
 }
 
-// L'introduzione animata si vede una volta sola per sessione (non si ripete tornando indietro dall'accesso)
-let welcomePlayed = false;
-
-// Colori fissi della pagina iniziale: come sul sito è sempre su foto scura, anche con il tema chiaro
-const WEL = { ink: '#F4F1E8', gold: '#C4A868', soft: 'rgba(244,241,232,0.72)', line: 'rgba(196,168,104,0.7)' };
-
-// Pagina iniziale, come "Benvenuto in DF Barbershop" del sito: foto scura, etichetta, titolo in oro, filetto, frase e pulsanti.
-// Una sola entrata, lenta e pulita (le voci compaiono una dopo l'altra); poi tutto resta fermo.
-function Welcome({ onIn, onUp }: { onIn: () => void; onUp: () => void }) {
+// Benvenuto, uguale su telefono, tablet e web: la foto scurita, il marchio, il titolo e una frase.
+// Niente animazioni e niente pulsanti: si tocca (o si clicca) in un punto qualsiasi e si passa all'accesso,
+// dove sotto i due campi c'è il link a Registrati.
+function Hello({ onNext }: { onNext: () => void }) {
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
-  const calm = useCalm();
-  const v0 = welcomePlayed ? 1 : 0; // tornando alla pagina l'introduzione non si ripete
-  const photo = useRef(new Animated.Value(v0)).current;  // foto: esce dal nero
-  const label = useRef(new Animated.Value(v0)).current;  // "Est. Roma"
-  const intro = useRef(new Animated.Value(v0)).current;  // "Benvenuto in"
-  const name = useRef(new Animated.Value(v0)).current;   // "DF Barbershop"
-  const track = useRef(new Animated.Value(v0)).current;  // spazio fra le lettere che si chiude (animazione non nativa)
-  const line = useRef(new Animated.Value(v0)).current;   // filetto
-  const tag = useRef(new Animated.Value(v0)).current;    // frase
-  const rise = useRef(new Animated.Value(v0)).current;   // pulsanti
-
-  useEffect(() => {
-    if (calm || welcomePlayed) {
-      welcomePlayed = true;
-      [photo, label, intro, name, track, line, tag, rise].forEach((v) => v.setValue(1));
-      return;
-    }
-    welcomePlayed = true;
-    const go = (v: Animated.Value, duration: number, delay: number, easing: (t: number) => number, native = true) =>
-      Animated.timing(v, { toValue: 1, duration, delay, easing, useNativeDriver: native });
-    Animated.parallel([
-      go(photo, 1400, 0, Easing.out(Easing.cubic)),
-      go(label, 700, 500, Easing.out(Easing.cubic)),
-      go(intro, 800, 800, Easing.out(Easing.cubic)),
-      go(name, 1000, 1050, Easing.out(Easing.cubic)),
-      go(track, 1700, 1050, Easing.out(Easing.cubic), false),
-      go(line, 700, 1900, Easing.out(Easing.cubic)),
-      go(tag, 800, 2100, Easing.out(Easing.cubic)),
-      go(rise, 800, 2400, Easing.out(Easing.cubic)),
-    ]).start();
-  }, [calm]);
-
-  const fs = Math.min(76, Math.round((width - 56) / 6.2));
-  const up = (v: Animated.Value, d = 12) => ({ opacity: v, transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [d, 0] }) }] });
-
+  const { width, height } = useWindowDimensions();
+  const desk = useDesk();
+  const base = Math.min(width, height);
+  const big = Platform.OS !== 'web' && base >= 600; // tablet
+  const fs = big ? clampN(56, base * 0.08, 80) : width < 600 ? 38 : 54;
+  const mark = big ? 112 : 84;
+  const sub = big ? 22 : 18;
   return (
-    <View style={[s.welcome, { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 20) + 8 }]}>
-      <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { opacity: photo }]}>
-        <Image source={require('./assets/hero.jpg')} style={StyleSheet.absoluteFill} resizeMode="cover" />
-      </Animated.View>
-      <LinearGradient colors={['rgba(12,12,12,0.55)', 'rgba(12,12,12,0.7)', 'rgba(12,12,12,0.94)']} locations={[0, 0.55, 1]} style={StyleSheet.absoluteFill} />
+    <View style={{ flex: 1, backgroundColor: '#000000' }}>
+      <Backdrop />
       <StatusBar style="light" />
-      {Platform.OS === 'web' && <ThemeToggle top={insets.top + 12} onDark />}
-
-      <View style={s.welBrand}>
-        <Animated.View style={[{ alignSelf: 'stretch' }, up(label, 6)]}>
-          <View style={[s.eyebrowRow, { justifyContent: 'center' }]}>
-            <View style={[s.eyebrowLine, { backgroundColor: WEL.line }]} />
-            <Text style={[s.eyebrow, { color: WEL.gold }]}>Est. Roma</Text>
-            <View style={[s.eyebrowLine, { backgroundColor: WEL.line }]} />
+      <Pressable style={{ flex: 1 }} onPress={onNext} accessibilityRole="button" accessibilityLabel="Continua">
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 28, paddingTop: insets.top + 56, paddingBottom: insets.bottom + 36 }}>
+          <View style={{ width: '100%', maxWidth: big ? 640 : 420, alignItems: 'center' }}>
+            <DFMark size={mark} />
+            <Text style={[A.heTitle, { fontSize: fs, lineHeight: Math.round(fs * 1.1), letterSpacing: -fs * 0.03 }]} accessibilityRole="header">
+              Benvenuto in{'\n'}DF Barbershop
+            </Text>
+            <Text style={[A.heSub, { fontSize: sub, lineHeight: Math.round(sub * 1.4), maxWidth: big ? 560 : 400 }]}>
+              Eleganza, stile e professionalità.{'\n'}Prenota il tuo posto e vivi l’esperienza firmata DF.
+            </Text>
           </View>
-        </Animated.View>
-        <View accessible accessibilityRole="header" accessibilityLabel="Benvenuto in DF Barbershop" style={{ alignSelf: 'stretch', alignItems: 'center' }}>
-          <Animated.Text allowFontScaling={false} style={[disp(Math.round(fs * 0.42), 0), { color: WEL.ink, marginTop: 14, textAlign: 'center' }, { letterSpacing: track.interpolate({ inputRange: [0, 1], outputRange: [fs * 0.5, fs * 0.2] }) }, up(intro, 10)]}>
-            Benvenuto in
-          </Animated.Text>
-          <Animated.Text
-            allowFontScaling={false}
-            numberOfLines={1}
-            adjustsFontSizeToFit
-            style={[disp(fs, 0), { color: WEL.gold, textAlign: 'center', marginTop: 2, alignSelf: 'stretch' }, { letterSpacing: track.interpolate({ inputRange: [0, 1], outputRange: [fs * 0.32, fs * 0.07] }) }, up(name, 14)]}
-          >
-            DF Barbershop
-          </Animated.Text>
+          <Text style={[A.heTap, { bottom: insets.bottom + 40 }]}>{desk ? 'Clicca per continuare' : 'Tocca per continuare'}</Text>
         </View>
-        <Animated.View style={[s.welLine, { opacity: line, transform: [{ scaleX: line }] }]} />
-        <Animated.View style={[{ alignItems: 'center' }, up(tag, 8)]}>
-          <Text style={s.welSub}>Eleganza, stile e professionalità</Text>
-          <Text style={s.welSub2}>Prenota il tuo posto e vivi l’esperienza firmata DF</Text>
-        </Animated.View>
-      </View>
-
-      <Animated.View style={[s.welActions, up(rise, 18)]}>
-        <Pressable onPress={onIn} accessibilityRole="button" style={({ pressed }) => [s.welPrimary, pressed && { opacity: 0.85 }]}>
-          <Text style={s.welPrimaryT}>Accedi</Text>
-          <Ionicons name="arrow-forward" size={18} color={C.onAccent} />
-        </Pressable>
-        <Pressable onPress={onUp} accessibilityRole="button" style={({ pressed }) => [s.welGhost, pressed && { backgroundColor: 'rgba(196,168,104,0.14)' }]}>
-          <Text style={s.welGhostT}>Registrati</Text>
-        </Pressable>
-      </Animated.View>
+      </Pressable>
+      {Platform.OS === 'web' && <ThemeToggle top={insets.top + 12} onDark />}
     </View>
   );
 }
 
+// Accesso e registrazione, in stile Apple: colonna centrata, titolo grande, campi raggruppati in un pannello
+// con l'etichetta che sale quando si scrive, un solo pulsante a pillola. Sullo sfondo la foto del salone.
 function AuthShell({ title, sub, onBack, children }: { title: string; sub: string; onBack: () => void; children: ReactNode }) {
   const insets = useSafeAreaInsets();
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView
-        contentContainerStyle={[s.authPad, { paddingTop: insets.top + 10, paddingBottom: insets.bottom + 40 }]}
-        keyboardShouldPersistTaps="handled"
-      >
-        <Pressable style={s.authBack} onPress={onBack} hitSlop={12}>
-          <Ionicons name="chevron-back" size={18} color={C.accentText} />
-          <Text style={s.backT}>Indietro</Text>
-        </Pressable>
-        <View style={s.authMini}><DFMark size={46} /></View>
-        <PageTitle t={title} sub={sub} />
-        {children}
-      </ScrollView>
-    </KeyboardAvoidingView>
+    <View style={{ flex: 1, backgroundColor: '#000000' }}>
+      <Backdrop />
+      <StatusBar style="light" />
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView
+          contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24, paddingTop: insets.top + 64, paddingBottom: insets.bottom + 36 }}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={A.col}>
+            <View style={A.logo}><DFMark size={64} /></View>
+            <Text style={A.title} accessibilityRole="header">{title}</Text>
+            <Text style={A.sub}>{sub}</Text>
+            {children}
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+      <Pressable style={[A.back, { top: insets.top + 14 }]} onPress={onBack} hitSlop={12} accessibilityRole="button" accessibilityLabel="Indietro">
+        <Ionicons name="chevron-back" size={22} color={A_GOLD} />
+        <Text style={A.backT}>Indietro</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+// Pannello che raccoglie più campi: angoli ampi, righe separate da un filo
+function AuthPanel({ children }: { children: ReactNode }) {
+  return <View style={A.panel}>{children}</View>;
+}
+
+// Campo con l'etichetta che passa da segnaposto a titoletto quando si tocca o si scrive (come nei moduli di Apple)
+function AuthInput({ label, value, error, right, hint, style, ...p }: TextInputProps & { label: string; value: string; error?: string | null; right?: ReactNode; hint?: string }) {
+  const [focus, setFocus] = useState(false);
+  const up = focus || value.length > 0;
+  const a = useRef(new Animated.Value(up ? 1 : 0)).current;
+  useEffect(() => {
+    Animated.timing(a, { toValue: up ? 1 : 0, duration: 150, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
+  }, [up]);
+  const col = error ? A_RED : focus ? A_GOLD : 'rgba(255,255,255,0.6)';
+  return (
+    <View style={[A.row, focus && { backgroundColor: 'rgba(255,255,255,0.06)' }, style]}>
+      <Animated.View pointerEvents="none" style={{ position: 'absolute', left: 16, right: 16, top: a.interpolate({ inputRange: [0, 1], outputRange: [19, 8] }) }}>
+        <Animated.Text numberOfLines={1} allowFontScaling={false} style={{ color: col, fontWeight: '500', fontSize: a.interpolate({ inputRange: [0, 1], outputRange: [17, 12] }) }}>{label}</Animated.Text>
+      </Animated.View>
+      <TextInput
+        {...p}
+        value={value}
+        onFocus={() => setFocus(true)}
+        onBlur={() => setFocus(false)}
+        placeholder={up ? hint : undefined}
+        placeholderTextColor="rgba(255,255,255,0.3)"
+        accessibilityLabel={label}
+        selectionColor={A_GOLD}
+        style={[A.input, Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : null]}
+      />
+      {right}
+    </View>
   );
 }
 
@@ -786,34 +698,36 @@ function LoginForm({ email0, onBack, onSwitch }: { email0: string; onBack: () =>
 
   return (
     <AuthShell title="Bentornato" sub="Accedi per prenotare, vedere i tuoi appuntamenti e la tua carta fedeltà." onBack={onBack}>
-      <Field label="E-mail" value={email} onChangeText={setEmail} autoCapitalize="none" autoCorrect={false} keyboardType="email-address" autoComplete="email" textContentType="emailAddress" placeholder="nome@esempio.it" />
-      <Field
-        label="Password"
-        value={pw}
-        onChangeText={setPw}
-        secureTextEntry={!show}
-        autoCapitalize="none"
-        autoComplete="password"
-        textContentType="password"
-        placeholder="La tua password"
-        onSubmitEditing={submit}
-        right={
-          <Pressable onPress={() => setShow(!show)} hitSlop={10}>
-            <Ionicons name={show ? 'eye-off-outline' : 'eye-outline'} size={20} color={C.muted} />
-          </Pressable>
-        }
-      />
-      {err ? <Text style={s.formErr}>{err}</Text> : null}
+      <AuthPanel>
+        <AuthInput label="E-mail" value={email} onChangeText={setEmail} autoCapitalize="none" autoCorrect={false} keyboardType="email-address" autoComplete="email" textContentType="emailAddress" hint="nome@esempio.it" />
+        <View style={A.sep} />
+        <AuthInput
+          label="Password"
+          value={pw}
+          onChangeText={setPw}
+          secureTextEntry={!show}
+          autoCapitalize="none"
+          autoComplete="password"
+          textContentType="password"
+          onSubmitEditing={submit}
+          right={
+            <Pressable onPress={() => setShow(!show)} hitSlop={10} accessibilityRole="button" accessibilityLabel={show ? 'Nascondi la password' : 'Mostra la password'}>
+              <Ionicons name={show ? 'eye-off-outline' : 'eye-outline'} size={21} color="rgba(255,255,255,0.6)" />
+            </Pressable>
+          }
+        />
+      </AuthPanel>
+      {err ? <Text style={A.err}>{err}</Text> : null}
       {unconfirmed ? (
-        <Pressable onPress={resend} style={{ marginTop: 8 }}>
-          <Text style={s.link}>Rinvia l’e-mail di conferma</Text>
+        <Pressable onPress={resend} style={{ marginTop: 10, alignSelf: 'center' }}>
+          <Text style={A.link}>Rinvia l’e-mail di conferma</Text>
         </Pressable>
       ) : null}
-      <Pressable style={[s.btn, busy && { opacity: 0.6 }]} onPress={submit} disabled={busy}>
-        <Text style={s.btnT}>{busy ? 'Un attimo…' : 'Accedi'}</Text>
+      <Pressable style={({ pressed }) => [A.btn, (busy || pressed) && { opacity: busy ? 0.6 : 0.88 }]} onPress={submit} disabled={busy} accessibilityRole="button">
+        <Text style={A.btnT}>{busy ? 'Un attimo…' : 'Accedi'}</Text>
       </Pressable>
-      <Pressable onPress={onSwitch} style={{ marginTop: 18, alignItems: 'center' }}>
-        <Text style={s.muted}>Non hai un account? <Text style={{ color: C.accentText, fontWeight: '700' }}>Registrati</Text></Text>
+      <Pressable onPress={onSwitch} style={A.switch} accessibilityRole="button">
+        <Text style={A.muted}>Non hai un profilo? <Text style={{ color: A_GOLD, fontWeight: '700' }}>Registrati</Text></Text>
       </Pressable>
     </AuthShell>
   );
@@ -879,53 +793,78 @@ function RegisterForm({ onBack, onSwitch, onHold, onDone }: { onBack: () => void
   };
 
   return (
-    <AuthShell title="Crea il tuo account" sub="Ti servono pochi secondi. Tutti i campi sono obbligatori." onBack={onBack}>
-      <View style={{ flexDirection: 'row', gap: 12 }}>
-        <View style={{ flex: 1 }}>
-          <Field label="Nome" value={first} onChangeText={setFirst} autoCapitalize="words" autoComplete="given-name" textContentType="givenName" error={shown('first')} />
+    <AuthShell title="Crea il tuo account" sub="Ti servono pochi secondi." onBack={onBack}>
+      <AuthPanel>
+        <View style={{ flexDirection: 'row' }}>
+          <AuthInput style={{ flex: 1 }} label="Nome" value={first} onChangeText={setFirst} autoCapitalize="words" autoComplete="given-name" textContentType="givenName" error={shown('first')} />
+          <View style={A.vsep} />
+          <AuthInput style={{ flex: 1 }} label="Cognome" value={last} onChangeText={setLast} autoCapitalize="words" autoComplete="family-name" textContentType="familyName" error={shown('last')} />
         </View>
-        <View style={{ flex: 1 }}>
-          <Field label="Cognome" value={last} onChangeText={setLast} autoCapitalize="words" autoComplete="family-name" textContentType="familyName" error={shown('last')} />
-        </View>
-      </View>
-      <Field label="Numero di telefono" value={phone} onChangeText={setPhone} keyboardType="phone-pad" autoComplete="tel" textContentType="telephoneNumber" placeholder="+39 333 1234567" error={shown('phone')} />
-      <Field label="E-mail" value={email} onChangeText={setEmail} autoCapitalize="none" autoCorrect={false} keyboardType="email-address" autoComplete="email" textContentType="emailAddress" placeholder="nome@esempio.it" error={shown('email')} />
-      <Field
-        label="Password"
-        value={pw}
-        onChangeText={setPw}
-        secureTextEntry={!show}
-        autoCapitalize="none"
-        textContentType="newPassword"
-        placeholder="Almeno 8 caratteri"
-        error={shown('pw')}
-        right={
-          <Pressable onPress={() => setShow(!show)} hitSlop={10}>
-            <Ionicons name={show ? 'eye-off-outline' : 'eye-outline'} size={20} color={C.muted} />
-          </Pressable>
-        }
-      />
-      <Field
-        label="Ripeti la password"
-        value={pw2}
-        onChangeText={setPw2}
-        secureTextEntry={!show}
-        autoCapitalize="none"
-        textContentType="newPassword"
-        placeholder="Scrivila ancora una volta"
-        error={shown('pw2')}
-        onSubmitEditing={submit}
-      />
-      {fail ? <Text style={s.formErr}>{fail}</Text> : null}
-      <Pressable style={[s.btn, busy && { opacity: 0.6 }]} onPress={submit} disabled={busy}>
-        <Text style={s.btnT}>{busy ? 'Un attimo…' : 'Crea account'}</Text>
+        <View style={A.sep} />
+        <AuthInput label="Numero di telefono" value={phone} onChangeText={setPhone} keyboardType="phone-pad" autoComplete="tel" textContentType="telephoneNumber" hint="+39 333 1234567" error={shown('phone')} />
+      </AuthPanel>
+      {(['first', 'last', 'phone'] as const).map((k) => (shown(k) ? <Text key={k} style={A.err}>{shown(k)}</Text> : null))}
+      <View style={{ height: 14 }} />
+      <AuthPanel>
+        <AuthInput label="E-mail" value={email} onChangeText={setEmail} autoCapitalize="none" autoCorrect={false} keyboardType="email-address" autoComplete="email" textContentType="emailAddress" hint="nome@esempio.it" error={shown('email')} />
+        <View style={A.sep} />
+        <AuthInput
+          label="Password"
+          value={pw}
+          onChangeText={setPw}
+          secureTextEntry={!show}
+          autoCapitalize="none"
+          textContentType="newPassword"
+          hint="Almeno 8 caratteri"
+          error={shown('pw')}
+          right={
+            <Pressable onPress={() => setShow(!show)} hitSlop={10} accessibilityRole="button" accessibilityLabel={show ? 'Nascondi la password' : 'Mostra la password'}>
+              <Ionicons name={show ? 'eye-off-outline' : 'eye-outline'} size={21} color="rgba(255,255,255,0.6)" />
+            </Pressable>
+          }
+        />
+        <View style={A.sep} />
+        <AuthInput label="Ripeti la password" value={pw2} onChangeText={setPw2} secureTextEntry={!show} autoCapitalize="none" textContentType="newPassword" error={shown('pw2')} onSubmitEditing={submit} />
+      </AuthPanel>
+      {(['email', 'pw', 'pw2'] as const).map((k) => (shown(k) ? <Text key={k} style={A.err}>{shown(k)}</Text> : null))}
+      {fail ? <Text style={A.err}>{fail}</Text> : null}
+      <Text style={A.note}>Tutti i campi sono obbligatori.</Text>
+      <Pressable style={({ pressed }) => [A.btn, (busy || pressed) && { opacity: busy ? 0.6 : 0.88 }]} onPress={submit} disabled={busy} accessibilityRole="button">
+        <Text style={A.btnT}>{busy ? 'Un attimo…' : 'Crea account'}</Text>
       </Pressable>
-      <Pressable onPress={onSwitch} style={{ marginTop: 18, alignItems: 'center' }}>
-        <Text style={s.muted}>Hai già un account? <Text style={{ color: C.accentText, fontWeight: '700' }}>Accedi</Text></Text>
+      <Pressable onPress={onSwitch} style={A.switch} accessibilityRole="button">
+        <Text style={A.muted}>Hai già un profilo? <Text style={{ color: A_GOLD, fontWeight: '700' }}>Accedi</Text></Text>
       </Pressable>
     </AuthShell>
   );
 }
+
+// Colori e stili fissi di Benvenuto e accesso (sempre su foto scura, qualunque sia il tema)
+const A_GOLD = '#C4A868';
+const A_RED = '#FF6B61';
+const A = StyleSheet.create({
+  heTitle: { color: '#FFFFFF', fontWeight: '700', textAlign: 'center', marginTop: 24 },
+  heSub: { color: 'rgba(255,255,255,0.74)', textAlign: 'center', marginTop: 12 },
+  heTap: { position: 'absolute', alignSelf: 'center', color: 'rgba(255,255,255,0.6)', fontSize: 15, fontWeight: '500', textAlign: 'center' },
+  col: { width: '100%', maxWidth: 400, alignSelf: 'center' },
+  logo: { alignSelf: 'center', marginBottom: 18 },
+  title: { color: '#FFFFFF', fontSize: 34, lineHeight: 40, fontWeight: '700', letterSpacing: -0.9, textAlign: 'center' },
+  sub: { color: 'rgba(255,255,255,0.68)', fontSize: 16, lineHeight: 22, textAlign: 'center', marginTop: 8, marginBottom: 26, alignSelf: 'center', maxWidth: 320 },
+  panel: { borderRadius: 18, overflow: 'hidden', backgroundColor: 'rgba(28,28,30,0.72)', borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.2)' },
+  row: { minHeight: 60, justifyContent: 'center', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16 },
+  input: { flex: 1, minWidth: 0, color: '#FFFFFF', fontSize: 17, paddingTop: 24, paddingBottom: 8, paddingHorizontal: 0 },
+  sep: { height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(255,255,255,0.2)', marginLeft: 16 },
+  vsep: { width: StyleSheet.hairlineWidth, backgroundColor: 'rgba(255,255,255,0.2)' },
+  err: { color: A_RED, fontSize: 13.5, lineHeight: 18, marginTop: 8, paddingHorizontal: 6 },
+  note: { color: 'rgba(255,255,255,0.55)', fontSize: 13, textAlign: 'center', marginTop: 16 },
+  btn: { height: 52, borderRadius: 26, backgroundColor: A_GOLD, alignItems: 'center', justifyContent: 'center', marginTop: 18 },
+  btnT: { color: '#14110D', fontSize: 17, fontWeight: '700', letterSpacing: 0.1 },
+  link: { color: A_GOLD, fontSize: 16, fontWeight: '500' },
+  switch: { marginTop: 20, alignItems: 'center', paddingVertical: 4 },
+  muted: { color: 'rgba(255,255,255,0.66)', fontSize: 15, lineHeight: 22 },
+  back: { position: 'absolute', left: 14, flexDirection: 'row', alignItems: 'center', height: 36, paddingLeft: 6, paddingRight: 14, borderRadius: 18, backgroundColor: 'rgba(0,0,0,0.4)', zIndex: 5 },
+  backT: { color: A_GOLD, fontSize: 17, fontWeight: '500' },
+});
 
 // Conferma a tutta pagina dopo la registrazione: rinvia e-mail, invia WhatsApp, accedi
 function Registered({ info, onLogin }: { info: Done; onLogin: () => void }) {
@@ -960,12 +899,10 @@ function Registered({ info, onLogin }: { info: Done; onLogin: () => void }) {
       <View style={s.doneRoot}>
         <ScrollView contentContainerStyle={[s.doneBody, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 }]}>
           <View style={s.doneIcon}>
-            <Brackets size={18} inset={0} color={C.accentLine2} />
-            <Ionicons name="checkmark" size={54} color={C.accentText} />
+            <Ionicons name="checkmark" size={54} color={C.onAccent} />
           </View>
-          <Text style={s.doneKicker}>REGISTRAZIONE COMPLETATA</Text>
+          <Text style={s.doneKicker}>Registrazione completata</Text>
           <Text style={s.doneTitle}>Grazie, {info.first}!</Text>
-          <View style={[s.rule, { alignSelf: 'center', marginBottom: 20 }]} />
           {info.active ? (
             <Text style={s.doneSub}>Il tuo account è pronto: puoi accedere subito e prenotare il tuo prossimo taglio.</Text>
           ) : (
@@ -976,19 +913,18 @@ function Registered({ info, onLogin }: { info: Done; onLogin: () => void }) {
             </>
           )}
 
-          <View style={{ width: '100%', marginTop: 34 }}>
-            <Pressable onPress={resend} disabled={wait > 0}>
-              <Panel style={[s.doneBtn, wait > 0 && { opacity: 0.55 }]}>
-                <Ionicons name="mail-outline" size={20} color={C.text} />
-                <Text style={s.doneBtnT}>{wait > 0 ? `Rinvia e-mail (${wait}s)` : 'Rinvia e-mail'}</Text>
-              </Panel>
-            </Pressable>
-            <Pressable onPress={whatsapp} style={{ marginTop: 12 }}>
-              <Panel style={s.doneBtn}>
-                <Ionicons name="logo-whatsapp" size={20} color={C.accentText} />
-                <Text style={s.doneBtnT}>Invia WhatsApp</Text>
-              </Panel>
-            </Pressable>
+          <View style={{ width: '100%', maxWidth: 420, marginTop: 34 }}>
+            <View style={s.grp}>
+              <Pressable onPress={resend} disabled={wait > 0} style={({ pressed }) => [s.grpRow, (wait > 0 || pressed) && { opacity: wait > 0 ? 0.5 : 0.8 }]}>
+                <View style={s.menuIcon}><Ionicons name="mail" size={18} color={C.onAccent} /></View>
+                <Text style={[s.rowT, { flex: 1, marginLeft: 14 }]}>{wait > 0 ? `Rinvia e-mail (${wait}s)` : 'Rinvia e-mail'}</Text>
+              </Pressable>
+              <View style={s.grpSep} />
+              <Pressable onPress={whatsapp} style={({ pressed }) => [s.grpRow, pressed && { opacity: 0.8 }]}>
+                <View style={s.menuIcon}><Ionicons name="logo-whatsapp" size={18} color={C.onAccent} /></View>
+                <Text style={[s.rowT, { flex: 1, marginLeft: 14 }]}>Invia WhatsApp</Text>
+              </Pressable>
+            </View>
             <Pressable style={s.btn} onPress={onLogin}>
               <Text style={s.btnT}>Accedi</Text>
             </Pressable>
@@ -1013,7 +949,7 @@ function Auth({ onHold }: { onHold: (v: boolean) => void }) {
 
   return (
     <View style={{ flex: 1 }}>
-      {stage === 'welcome' && <Welcome onIn={() => setStage('in')} onUp={() => setStage('up')} />}
+      {stage === 'welcome' && <Hello onNext={() => setStage('in')} />}
       {stage === 'in' && <LoginForm email0={email0} onBack={() => setStage('welcome')} onSwitch={() => setStage('up')} />}
       {stage === 'up' && <RegisterForm onBack={() => setStage('welcome')} onSwitch={() => setStage('in')} onHold={onHold} onDone={setDone} />}
       {done && <Registered info={done} onLogin={finish} />}
@@ -1113,7 +1049,7 @@ function BarberHistory({ uid, staffId, name, photo }: { uid: string; staffId: st
     const st = hisState(r.status);
     const tz = r.salons?.timezone ?? 'Europe/Rome';
     return (
-      <View key={r.id} style={[s.hisRow, soon && { borderColor: C.accentBorder, backgroundColor: C.accentSoft }]}>
+      <View key={r.id} style={[s.hisRow, soon && { backgroundColor: C.accentSoft }]}>
         <View style={[s.hisDate, soon && { backgroundColor: C.accent }]}>
           <Text style={[s.hisDay, soon && { color: C.onAccent }]}>{d.toLocaleDateString('it-IT', { day: 'numeric', timeZone: tz })}</Text>
           <Text style={[s.hisMon, soon && { color: C.onAccent }]}>{d.toLocaleDateString('it-IT', { month: 'short', timeZone: tz }).replace('.', '')}</Text>
@@ -1142,7 +1078,7 @@ function BarberHistory({ uid, staffId, name, photo }: { uid: string; staffId: st
       <View style={s.hisHead}>
         <Avatar name={name} url={photo} size={44} />
         <View style={{ flex: 1 }}>
-          <Text style={s.hisKicker}>IL TUO STORICO</Text>
+          <Text style={s.hisKicker}>Il tuo storico</Text>
           <Text style={s.h2} numberOfLines={1}>Con {name}</Text>
         </View>
       </View>
@@ -1188,7 +1124,7 @@ function BarberHistory({ uid, staffId, name, photo }: { uid: string; staffId: st
               {shown.map((r) => row(r, false))}
               {past.length > 4 && (
                 <Pressable onPress={() => setAll((v) => !v)} hitSlop={8} style={{ alignSelf: 'center', paddingVertical: 8 }}>
-                  <Text style={{ color: C.accentText, fontWeight: '700' }}>{all ? 'Mostra meno' : `Mostra tutte (${past.length})`}</Text>
+                  <Text style={{ color: C.accentText, fontWeight: '600' }}>{all ? 'Mostra meno' : `Mostra tutte (${past.length})`}</Text>
                 </Pressable>
               )}
             </>
@@ -1469,7 +1405,6 @@ function Book({ onBooked, staff, uid }: { onBooked: () => void; staff?: StaffSco
 
           <ScrollView contentContainerStyle={s.calBody} keyboardShouldPersistTaps="handled">
             <View style={s.calCard}>
-              <Brackets size={14} inset={8} />
               <View style={s.calHead}>
                 <Pressable onPress={() => canPrev && setMonth(addMonths(month, -1))} disabled={!canPrev} hitSlop={8} accessibilityRole="button" accessibilityLabel="Mese precedente" style={[s.calArrow, !canPrev && { opacity: 0.3 }]}>
                   <Ionicons name="chevron-back" size={18} color={C.text} />
@@ -1591,7 +1526,7 @@ function Mine({ session, refreshKey }: { session: Session; refreshKey: number })
 
   return (
     <ScrollView contentContainerStyle={s.pad}>
-      <PageTitle eyebrow="01 · Appuntamenti" t="La tua agenda" />
+      <PageTitle t="La tua agenda" />
       {rows.length === 0 && <Text style={[s.muted, { marginTop: 14 }]}>Nessun appuntamento in programma. Prenota il tuo prossimo taglio dalla scheda Prenota.</Text>}
       {rows.map((r) => (
         <View key={r.id} style={[s.card, { flexDirection: 'row', gap: 14, marginTop: 14 }]}>
@@ -2217,6 +2152,7 @@ function AgAdd({ st, t, room, svc, day, dayS, tz, salon, onClose, onSaved, onFai
       <Pressable style={s.backdrop} onPress={onClose} />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={[s.sheet, s.agSheet]}>
+<View style={s.grab} />
           <ScrollView style={{ maxHeight: Math.max(height * 0.82, 320) }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
             <Text style={s.eyebrow}>Nuovo appuntamento</Text>
             <Text style={s.h2}>{st.name} · {hm(t)}</Text>
@@ -2270,6 +2206,7 @@ function AgDetail({ r, tz, hasReward, onClose, reload }: { r: any; tz: string; h
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={s.backdrop} onPress={onClose} />
       <View style={[s.sheet, s.agSheet]}>
+<View style={s.grab} />
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 }}>
           <View style={{ flex: 1 }}>
             <Text style={s.eyebrow}>{r.staff?.name ?? 'Barbiere'}</Text>
@@ -2297,12 +2234,12 @@ function AgDetail({ r, tz, hasReward, onClose, reload }: { r: any; tz: string; h
 
 // ───────── Avatar ─────────
 function Avatar({ name, url, size = 44 }: { name: string; url?: string | null; size?: number }) {
-  const base = { width: size, height: size, borderRadius: 2 };
+  const base = { width: size, height: size, borderRadius: size / 2 };
   if (url) return <Image source={{ uri: url }} style={[base, { backgroundColor: C.card2 }]} />;
   const ini = name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
   return (
     <View style={[base, { backgroundColor: C.accentSoft, alignItems: 'center', justifyContent: 'center' }]}>
-      <Text style={[disp(size * 0.5, 0.5), { color: C.accentText }]}>{ini}</Text>
+      <Text style={{ color: C.accentText, fontSize: Math.round(size * 0.4), fontWeight: '700' }}>{ini}</Text>
     </View>
   );
 }
@@ -2408,7 +2345,7 @@ function MyDay({ uid }: { uid: string }) {
   if (ids && ids.length === 0) {
     return (
       <ScrollView contentContainerStyle={s.pad}>
-        <PageTitle eyebrow="Area barbiere" t="La mia giornata" />
+        <PageTitle t="La mia giornata" />
         <Text style={[s.muted, { marginTop: 14 }]}>Il tuo accesso non è ancora collegato a un barbiere. Il titolare deve collegarlo nella tabella staff (colonna user_id).</Text>
       </ScrollView>
     );
@@ -2418,7 +2355,7 @@ function MyDay({ uid }: { uid: string }) {
   const done = rows.filter((r) => r.status === 'completed').length;
   return (
     <ScrollView contentContainerStyle={s.pad}>
-      <PageTitle eyebrow="Area barbiere" t="La mia giornata" />
+      <PageTitle t="La mia giornata" />
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, marginTop: 14 }}>
         {days.map((d) => <DayTile key={ymd(d)} d={d} on={ymd(d) === ymd(day)} onPress={() => setDay(d)} />)}
       </ScrollView>
@@ -2488,7 +2425,7 @@ function Barbers({ canEdit, uid }: { canEdit: boolean; uid?: string }) {
 
   return (
     <ScrollView contentContainerStyle={s.pad}>
-      <PageTitle eyebrow="01 · Il team" t="I nostri barbieri" sub={canEdit ? 'Tocca una foto per cambiarla.' : uid ? 'Tocca la stella per scegliere il tuo barbiere preferito.' : 'Il team di DF Barbershop.'} />
+      <PageTitle t="I nostri barbieri" sub={canEdit ? 'Tocca una foto per cambiarla.' : uid ? 'Tocca la stella per scegliere il tuo barbiere preferito.' : 'Il team di DF Barbershop.'} />
       <View style={[s.grid, desk && s.grid3]}>
         {rows.map((st) => (
           <Pressable key={st.id} style={[s.barber, desk && s.col3]} onPress={() => pick(st)}>
@@ -2496,7 +2433,7 @@ function Barbers({ canEdit, uid }: { canEdit: boolean; uid?: string }) {
               <Image source={{ uri: st.photo_url }} style={s.barberPhoto} />
             ) : (
               <View style={[s.barberPhoto, { alignItems: 'center', justifyContent: 'center' }]}>
-                <Text style={[disp(54, 2), { color: C.accentText }]}>
+                <Text style={{ color: C.accentText, fontSize: 46, fontWeight: '700' }}>
                   {st.name.split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase()}
                 </Text>
               </View>
@@ -2569,7 +2506,6 @@ function Loyalty({ uid, onBalance, between }: { uid: string; onBalance?: (n: num
   return (
     <View>
       <View style={s.loyHero}>
-        <Brackets size={16} inset={9} />
         <View style={s.heroTop}>
           <Text style={s.heroLabel}>Carta fedeltà</Text>
           <Ionicons name="ribbon-outline" size={22} color={C.accentText} />
@@ -2779,7 +2715,7 @@ function Profile({ session }: { session: Session }) {
 
   return (
     <ScrollView contentContainerStyle={s.pad} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
-      <PageTitle eyebrow="01 · Il tuo spazio" t="Il tuo profilo" />
+      <PageTitle t="Il tuo profilo" />
       <View style={{ height: 18 }} />
       <Loyalty uid={uid} between={below} />
     </ScrollView>
@@ -2979,7 +2915,7 @@ function Contacts({ uid, canPrefer, canEdit }: { uid?: string; canPrefer: boolea
   if (!sel) {
     return loaded ? (
       <ScrollView contentContainerStyle={s.pad}>
-        <PageTitle eyebrow="01 · Sedi" t="I nostri contatti" />
+        <PageTitle t="I nostri contatti" />
         <Text style={[s.muted, { marginTop: 14 }]}>Nessuna sede disponibile al momento.</Text>
       </ScrollView>
     ) : (
@@ -2989,7 +2925,7 @@ function Contacts({ uid, canPrefer, canEdit }: { uid?: string; canPrefer: boolea
 
   return (
     <ScrollView contentContainerStyle={[s.pad, { paddingBottom: 90 }]} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
-      <PageTitle eyebrow="01 · Le nostre sedi" t="I nostri contatti" />
+      <PageTitle t="I nostri contatti" />
       <View style={[s.wrap, { marginTop: 14 }]}>
         {ordered.map((x) => (
           <Chip key={x.id} label={`${x.id === prefId ? '★ ' : ''}${x.name}`} on={x.id === selId} onPress={() => setSelId(x.id)} />
@@ -2997,7 +2933,6 @@ function Contacts({ uid, canPrefer, canEdit }: { uid?: string; canPrefer: boolea
       </View>
 
       <View style={[s.card, { marginTop: 16 }]}>
-        <Brackets size={14} inset={8} />
         <Text style={s.h2}>{sel.name}</Text>
         <View style={s.infoRow}>
           <Ionicons name="location-outline" size={18} color={C.accentText} />
@@ -3141,7 +3076,7 @@ function ControlRoom() {
   if (failed) {
     return (
       <ScrollView contentContainerStyle={s.pad}>
-        <PageTitle eyebrow="Area titolare" t="Control room" />
+        <PageTitle t="Control room" />
         <Text style={[s.muted, { marginTop: 14 }]}>Dati non disponibili. Controlla di aver eseguito la migrazione v2 nel database e di essere entrato come titolare.</Text>
       </ScrollView>
     );
@@ -3149,7 +3084,7 @@ function ControlRoom() {
   if (!d) {
     return (
       <ScrollView contentContainerStyle={s.pad}>
-        <PageTitle eyebrow="Area titolare" t="Control room" />
+        <PageTitle t="Control room" />
         <View style={{ height: 14 }} />
         {periods}
         <ActivityIndicator style={{ marginTop: 60 }} color={C.accentText} />
@@ -3167,12 +3102,11 @@ function ControlRoom() {
 
   return (
     <ScrollView contentContainerStyle={s.pad}>
-      <PageTitle eyebrow="Area titolare" t="Control room" />
+      <PageTitle t="Control room" />
       <View style={{ height: 14 }} />
       {periods}
 
       <View style={[s.loyHero, { marginTop: 18 }]}>
-        <Brackets size={16} inset={9} />
         <Text style={s.heroLabel}>Incasso totale, ultimi {days} giorni</Text>
         <Text style={[s.heroNum, { marginTop: 8 }]}>{eur(total)}</Text>
         <Text style={s.rowSub}>
@@ -3239,17 +3173,20 @@ function More({ owner, go }: { owner: boolean; go: (t: Tab) => void }) {
   ];
   return (
     <ScrollView contentContainerStyle={s.pad}>
-      <PageTitle eyebrow="Gestione" t="Altro" />
-      <View style={{ marginTop: 18 }}>
-        {items.map(([id, title, icon, sub]) => (
-          <Pressable key={id} style={s.row} onPress={() => go(id)}>
-            <View style={s.menuIcon}><Ionicons name={icon as any} size={22} color={C.accentText} /></View>
-            <View style={{ flex: 1, marginLeft: 14 }}>
-              <Text style={s.rowT}>{title}</Text>
-              <Text style={s.rowSub}>{sub}</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={C.muted} />
-          </Pressable>
+      <PageTitle t="Altro" />
+      <View style={[s.grp, { marginTop: 14 }]}>
+        {items.map(([id, title, icon, sub], i) => (
+          <View key={id}>
+            {i > 0 && <View style={s.grpSep} />}
+            <Pressable style={({ pressed }) => [s.grpRow, pressed && { backgroundColor: C.card2 }]} onPress={() => go(id)}>
+              <View style={s.menuIcon}><Ionicons name={tabIcon(icon, true)} size={18} color={C.onAccent} /></View>
+              <View style={{ flex: 1, marginLeft: 14 }}>
+                <Text style={s.rowT}>{title}</Text>
+                <Text style={s.rowSub}>{sub}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={C.muted} />
+            </Pressable>
+          </View>
         ))}
       </View>
       {Platform.OS === 'web' && <ThemePicker />}
@@ -3269,7 +3206,6 @@ export default function App() {
   const [key, setKey] = useState(0);
   const [cart, setCart] = useState<Cart>({});
   const uid = session?.user.id;
-  const fontsReady = useBrandFont(); // titoli e frasi in corsivo: si disegna solo a caratteri pronti, senza "salti"
   const desk = useDesk();
 
   // Tema: sul telefono segue il sistema; sul web conta anche la scelta fatta nell'app. Va deciso prima di disegnare le schermate.
@@ -3330,7 +3266,7 @@ export default function App() {
     }
   }, [uid]);
 
-  if (!ready || !fontsReady) return <View style={s.root}><ActivityIndicator style={{ marginTop: 120 }} color={C.accentText} /></View>;
+  if (!ready) return <View style={s.root}><ActivityIndicator style={{ marginTop: 120 }} color={C.accentText} /></View>;
 
   const owner = staff?.salonIds === null;
   const tabs: [Tab, string, string][] = staff
@@ -3393,27 +3329,28 @@ export default function App() {
                 <View style={s.deskCol}>
                   <View style={s.top}>
                     <View style={s.topBrand}>
-                      <DFMark size={34} />
+                      <DFMark size={32} />
                       <View>
                         <Text style={s.headT} numberOfLines={1}>Daniele Fichera</Text>
                         <Text style={s.headSub} numberOfLines={1}>Barber Shop · Roma</Text>
                       </View>
                     </View>
-                    <View style={s.topNav}>
-                      {tabs.map(([id, label, icon]) => {
-                        const on = active === id;
-                        return (
-                          <Pressable key={id} style={[s.topItem, on && s.topItemOn]} onPress={() => setTab(id)} accessibilityRole="tab" accessibilityState={{ selected: on }} accessibilityLabel={label}>
-                            <Ionicons name={icon as any} size={20} color={on ? C.accentText : C.muted} />
-                            <Text numberOfLines={1} style={[s.topLabel, on && { color: C.accentText }]}>{label}</Text>
-                            <View style={[s.topBar, on && s.topBarOn]} />
-                          </Pressable>
-                        );
-                      })}
+                    <View style={s.topMid}>
+                      <View style={s.topNav}>
+                        {tabs.map(([id, label, icon]) => {
+                          const on = active === id;
+                          return (
+                            <Pressable key={id} style={[s.topItem, on && s.topItemOn]} onPress={() => setTab(id)} accessibilityRole="tab" accessibilityState={{ selected: on }} accessibilityLabel={label}>
+                              <Ionicons name={tabIcon(icon, on)} size={18} color={on ? C.text : C.muted} />
+                              <Text numberOfLines={1} style={[s.topLabel, on && { color: C.text }]}>{label}</Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
                     </View>
-                    <Pressable style={s.topItem} onPress={onMenu ?? (() => supabase.auth.signOut())} accessibilityRole="button" accessibilityLabel={onMenu ? 'Account' : 'Esci'}>
-                      <Ionicons name={onMenu ? 'person-outline' : 'log-out-outline'} size={20} color={C.muted} />
-                      <Text style={s.topLabel}>{onMenu ? 'Account' : 'Esci'}</Text>
+                    <Pressable style={s.topAcc} onPress={onMenu ?? (() => supabase.auth.signOut())} accessibilityRole="button" accessibilityLabel={onMenu ? 'Account' : 'Esci'}>
+                      <Ionicons name={onMenu ? 'person-circle-outline' : 'log-out-outline'} size={20} color={C.accentText} />
+                      <Text style={[s.topLabel, { color: C.accentText }]}>{onMenu ? 'Account' : 'Esci'}</Text>
                     </Pressable>
                   </View>
                   <View style={s.deskMain}>
@@ -3436,9 +3373,8 @@ export default function App() {
                       const on = active === id;
                       return (
                         <Pressable key={id} style={s.tabItem} onPress={() => setTab(id)} accessibilityRole="tab" accessibilityState={{ selected: on }} accessibilityLabel={label}>
-                          <View style={[s.tabLine, on && s.tabLineOn]} />
                           <View style={s.tabPill}>
-                            <Ionicons name={icon as any} size={21} color={on ? C.accentText : C.muted} />
+                            <Ionicons name={tabIcon(icon, on)} size={25} color={on ? C.accentText : C.muted} />
                             <Text numberOfLines={1} allowFontScaling={false} style={[s.tabLabel, on && { color: C.accentText }]}>{label}</Text>
                           </View>
                         </Pressable>
@@ -3453,22 +3389,26 @@ export default function App() {
           <Modal visible={menu && !staff} transparent animationType="fade" onRequestClose={() => setMenu(false)}>
             <Pressable style={s.backdrop} onPress={() => setMenu(false)} />
             <View style={s.sheet}>
+<View style={s.grab} />
               <Text style={s.h2}>Account</Text>
               <Text style={[s.rowSub, { marginBottom: 14 }]}>{session.user.email}</Text>
-              <Pressable style={s.row} onPress={() => { setMenu(false); supabase.auth.signOut(); }}>
-                <View style={s.menuIcon}><Ionicons name="log-out-outline" size={22} color={C.accentText} /></View>
-                <View style={{ flex: 1, marginLeft: 14 }}>
-                  <Text style={s.rowT}>Esci</Text>
-                  <Text style={s.rowSub}>Disconnetti questo dispositivo</Text>
-                </View>
-              </Pressable>
-              <Pressable style={s.row} onPress={() => { setMenu(false); setTimeout(askDeleteAccount, 450); }}>
-                <View style={[s.menuIcon, { backgroundColor: C.dangerSoft }]}><Ionicons name="trash-outline" size={22} color={C.danger} /></View>
-                <View style={{ flex: 1, marginLeft: 14 }}>
-                  <Text style={[s.rowT, { color: C.danger }]}>Elimina account</Text>
-                  <Text style={s.rowSub}>Cancella il tuo profilo e i dati personali</Text>
-                </View>
-              </Pressable>
+              <View style={[s.grp, { backgroundColor: C.card2 }]}>
+                <Pressable style={({ pressed }) => [s.grpRow, pressed && { backgroundColor: C.line }]} onPress={() => { setMenu(false); supabase.auth.signOut(); }}>
+                  <View style={s.menuIcon}><Ionicons name="log-out" size={18} color={C.onAccent} /></View>
+                  <View style={{ flex: 1, marginLeft: 14 }}>
+                    <Text style={s.rowT}>Esci</Text>
+                    <Text style={s.rowSub}>Disconnetti questo dispositivo</Text>
+                  </View>
+                </Pressable>
+                <View style={s.grpSep} />
+                <Pressable style={({ pressed }) => [s.grpRow, pressed && { backgroundColor: C.line }]} onPress={() => { setMenu(false); setTimeout(askDeleteAccount, 450); }}>
+                  <View style={[s.menuIcon, { backgroundColor: C.danger }]}><Ionicons name="trash" size={18} color="#FFFFFF" /></View>
+                  <View style={{ flex: 1, marginLeft: 14 }}>
+                    <Text style={[s.rowT, { color: C.danger }]}>Elimina account</Text>
+                    <Text style={s.rowSub}>Cancella il tuo profilo e i dati personali</Text>
+                  </View>
+                </Pressable>
+              </View>
             </View>
           </Modal>
         </SafeAreaView>
@@ -3478,286 +3418,273 @@ export default function App() {
 }
 
 function makeStyles() {
-  const hair = { borderWidth: 1, borderColor: C.line } as const;
+  const HL = StyleSheet.hairlineWidth;
   return StyleSheet.create({
   root: { flex: 1, backgroundColor: C.bg },
   pad: { padding: 20, paddingBottom: 40 },
-  h1: { ...disp(44, 1), color: C.text, marginBottom: 10 },
-  h2: { ...disp(26, 0.8), color: C.text },
-  muted: { color: C.muted, fontSize: 15, lineHeight: 22 },
+  h1: { fontSize: 34, lineHeight: 41, fontWeight: '700', color: C.text, letterSpacing: -0.6, marginBottom: 6 },
+  h2: { fontSize: 20, lineHeight: 25, fontWeight: '600', color: C.text, letterSpacing: -0.3 },
+  muted: { color: C.muted, fontSize: 15, lineHeight: 21 },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
 
-  // Etichette, titoli e filetti (il linguaggio del sito)
-  eyebrowRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
-  eyebrowLine: { width: 28, height: 1, backgroundColor: C.accentLine2 },
-  eyebrow: { ...lab(11, 2.8), color: C.accentText },
-  rule: { width: 44, height: 1, backgroundColor: C.accentBorder, marginBottom: 14 },
-  lead: { ...ital(19), color: C.muted, lineHeight: 26 },
-  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 30, marginBottom: 12 },
-  titleLine: { flex: 1, height: 1, backgroundColor: C.line },
+  // Titoli
+  eyebrow: { color: C.accentText, fontSize: 13, fontWeight: '600', letterSpacing: 0.2 },
+  lead: { color: C.muted, fontSize: 17, lineHeight: 23 },
 
   // Testata
-  headerWrap: { borderBottomWidth: 1, borderBottomColor: C.line, backgroundColor: C.bg },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 10 },
-  headDiv: { width: 1, height: 30, backgroundColor: C.line },
-  headT: { ...disp(21, 1), color: C.text },
-  headSub: { ...lab(9.5, 2.2), color: C.muted, marginTop: 1 },
-  logoutBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', ...hair },
-  back: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingTop: 10 },
-  backT: { ...lab(12, 1.8), color: C.accentText, fontWeight: '700' },
+  headerWrap: {},
+  header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 8, minHeight: 52 },
+  headT: { color: C.text, fontSize: 17, fontWeight: '600', letterSpacing: -0.3 },
+  headSub: { color: C.muted, fontSize: 12, marginTop: 1 },
+  logoutBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: C.card2, alignItems: 'center', justifyContent: 'center' },
+  back: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingTop: 4 },
+  backT: { color: C.accentText, fontSize: 17, fontWeight: '400' },
 
-  // Passi della prenotazione: "01 · Sede"
-  stepRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 30, marginBottom: 12 },
-  stepNum: { minWidth: 32, height: 26, paddingHorizontal: 4, borderWidth: 1, borderColor: C.accentLine2, alignItems: 'center', justifyContent: 'center' },
-  stepNumOn: { backgroundColor: C.accent, borderColor: C.accent },
-  stepNumT: { ...lab(12, 1), color: C.accentText, fontWeight: '700' },
+  // Passi della prenotazione
+  stepRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 28, marginBottom: 12 },
+  stepNum: { width: 28, height: 28, borderRadius: 14, backgroundColor: C.card2, alignItems: 'center', justifyContent: 'center' },
+  stepNumOn: { backgroundColor: C.accent },
+  stepNumT: { color: C.muted, fontSize: 14, fontWeight: '600' },
 
-  chip: { backgroundColor: C.card, borderWidth: 1, borderColor: C.line, paddingVertical: 11, paddingHorizontal: 16 },
-  chipOn: { backgroundColor: C.accent, borderColor: C.accent },
-  chipT: { fontSize: 12.5, fontWeight: '700', letterSpacing: 1.1, textTransform: 'uppercase', color: C.text },
-  chipSub: { fontSize: 12.5, color: C.muted, marginTop: 2 },
+  chip: { backgroundColor: C.card2, borderRadius: 12, paddingVertical: 11, paddingHorizontal: 16 },
+  chipOn: { backgroundColor: C.accent },
+  chipT: { fontSize: 16, fontWeight: '500', color: C.text },
+  chipSub: { fontSize: 13, color: C.muted, marginTop: 2 },
   onT: { color: C.onAccent },
 
-  cat: { ...lab(11, 2.2), color: C.muted, marginBottom: 8, marginTop: 4 },
-  row: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.card, ...hair, padding: 15, marginBottom: 10 },
-  rowOn: { borderColor: C.accentBorder, backgroundColor: C.accentSoft },
-  rowT: { color: C.text, fontSize: 16, fontWeight: '700' },
-  rowSub: { color: C.muted, fontSize: 13, marginTop: 2, lineHeight: 18 },
-  price: { ...disp(25, 0.6), color: C.accentText },
+  cat: { color: C.muted, fontSize: 13, fontWeight: '400', letterSpacing: -0.1, textTransform: 'uppercase', marginBottom: 8, marginTop: 4, marginLeft: 16 },
+  row: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.card, borderRadius: 16, borderWidth: 2, borderColor: 'transparent', paddingVertical: 13, paddingHorizontal: 15, marginBottom: 8 },
+  rowOn: { borderColor: C.accent },
+  rowT: { color: C.text, fontSize: 17, fontWeight: '600', letterSpacing: -0.3 },
+  rowSub: { color: C.muted, fontSize: 14, marginTop: 2, lineHeight: 19 },
+  price: { color: C.accentText, fontSize: 17, fontWeight: '600' },
 
-  dayTile: { width: 64, alignItems: 'center', paddingVertical: 10, backgroundColor: C.card, ...hair },
-  dayW: { ...lab(10, 1.4), color: C.muted },
-  dayN: { ...disp(30, 0.5), color: C.text, marginVertical: 1 },
+  dayTile: { width: 62, alignItems: 'center', paddingVertical: 11, borderRadius: 14, backgroundColor: C.card2 },
+  dayW: { color: C.muted, fontSize: 12, fontWeight: '500' },
+  dayN: { color: C.text, fontSize: 22, fontWeight: '600', marginVertical: 2 },
 
-  slot: { backgroundColor: C.card, ...hair, width: 80, alignItems: 'center', paddingVertical: 13 },
-  slotT: { fontSize: 16, fontWeight: '700', color: C.text, fontVariant: ['tabular-nums'] },
+  slot: { backgroundColor: C.card2, borderRadius: 12, width: 80, alignItems: 'center', paddingVertical: 13 },
+  slotT: { fontSize: 17, fontWeight: '600', color: C.text, fontVariant: ['tabular-nums'] },
 
-  btn: { backgroundColor: C.accent, paddingVertical: 17, alignItems: 'center', marginTop: 16 },
-  btnT: { ...lab(14, 2.4), color: C.onAccent, fontWeight: '700' },
-  goT: { ...lab(13, 2.2), color: C.onAccent, fontWeight: '700' },
-  input: { backgroundColor: C.card, ...hair, padding: 15, fontSize: 16, color: C.text, marginTop: 10 },
+  btn: { backgroundColor: C.accent, borderRadius: 26, paddingVertical: 15, alignItems: 'center', marginTop: 16 },
+  btnT: { color: C.onAccent, fontSize: 17, fontWeight: '600', letterSpacing: -0.2 },
+  goT: { color: C.onAccent, fontSize: 17, fontWeight: '600', letterSpacing: -0.2 },
+  input: { backgroundColor: C.card2, borderRadius: 12, padding: 14, fontSize: 17, color: C.text, marginTop: 10 },
 
-  // Barra delle schede: piatta, con filetto in alto e linea dorata sulla voce attiva
   // Computer: menu in alto e pagina centrata
   deskCol: { flex: 1 },
-  top: { flexDirection: 'row', alignItems: 'stretch', gap: 24, paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: C.line, backgroundColor: C.bg },
-  topBrand: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
-  topNav: { flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'stretch' },
-  topItem: { flexDirection: 'row', alignItems: 'center', gap: 9, paddingHorizontal: 18, paddingVertical: 16 },
-  topItemOn: { backgroundColor: C.accentSoft },
-  topLabel: { ...lab(12, 1.8), color: C.muted, fontWeight: '700' },
-  topBar: { position: 'absolute', left: 0, right: 0, bottom: -1, height: 2, backgroundColor: 'transparent' },
-  topBarOn: { backgroundColor: C.accent },
+  top: { flexDirection: 'row', alignItems: 'center', gap: 20, paddingHorizontal: 20, paddingVertical: 10, borderBottomWidth: HL, borderBottomColor: C.line, backgroundColor: C.bar },
+  topBrand: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  topMid: { flex: 1, alignItems: 'center' },
+  topNav: { flexDirection: 'row', alignItems: 'center', padding: 3, gap: 2, borderRadius: 11, backgroundColor: C.card2 },
+  topItem: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 7, borderRadius: 9 },
+  topItemOn: { backgroundColor: C.seg },
+  topLabel: { color: C.muted, fontSize: 14, fontWeight: '500' },
+  topAcc: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, height: 36, borderRadius: 18, backgroundColor: C.card2 },
   deskMain: { flex: 1, minWidth: 0 },
   deskPage: { flex: 1, width: '100%' },
   deskPageNarrow: { maxWidth: 980, alignSelf: 'center' },
   grid3: { justifyContent: 'flex-start', columnGap: '2.15%' as any },
   col3: { width: '31.9%' },
-  tabWrap: { borderTopWidth: 1, borderTopColor: C.line, backgroundColor: C.bg },
-  tabbar: { flexDirection: 'row' },
-  tabItem: { flex: 1 },
-  tabLine: { height: 2, backgroundColor: 'transparent', marginTop: -1 },
-  tabLineOn: { backgroundColor: C.accent },
-  tabPill: { alignItems: 'center', gap: 4, paddingTop: 9, paddingBottom: 8 },
-  tabLabel: { ...lab(9, 1), color: C.muted, fontWeight: '700' },
 
-  card: { backgroundColor: C.card, ...hair, padding: 16, marginBottom: 12 },
-  link: { ...lab(12, 1.6), fontWeight: '700', color: C.accentText, paddingVertical: 4, paddingRight: 14 },
-  badge: { width: 54, height: 60, backgroundColor: C.accentSoft, borderWidth: 1, borderColor: C.accentLine, alignItems: 'center', justifyContent: 'center' },
-  badgeN: { ...disp(30, 0.5), color: C.accentText, lineHeight: 32 },
-  badgeM: { ...lab(10.5, 1.6), color: C.accentText, fontWeight: '700' },
-  timeBig: { ...disp(32, 0.6), color: C.accentText, fontVariant: ['tabular-nums'], minWidth: 70 },
+  // Barra delle schede: come quella di iOS, con filo in alto e icone piene sulla voce attiva
+  tabWrap: { borderTopWidth: HL, borderTopColor: C.line, backgroundColor: C.bar },
+  tabbar: { flexDirection: 'row', paddingTop: 7, paddingHorizontal: 4 },
+  tabItem: { flex: 1 },
+  tabPill: { alignItems: 'center', gap: 2, paddingVertical: 2 },
+  tabLabel: { color: C.muted, fontSize: 10, fontWeight: '500' },
+
+  // Selettore a segmenti (tema)
+  seg: { flexDirection: 'row', backgroundColor: C.card2, borderRadius: 10, padding: 2 },
+  segItem: { flex: 1, alignItems: 'center', paddingVertical: 7, borderRadius: 8 },
+  segItemOn: { backgroundColor: C.seg, shadowColor: '#000000', shadowOpacity: 0.12, shadowRadius: 3, shadowOffset: { width: 0, height: 1 } },
+  segT: { color: C.text, fontSize: 14, fontWeight: '500' },
+  segTOn: { fontWeight: '600' },
+
+  card: { backgroundColor: C.card, borderRadius: 18, padding: 16, marginBottom: 12 },
+  link: { fontSize: 16, fontWeight: '500', color: C.accentText, paddingVertical: 4, paddingRight: 14 },
+  badge: { width: 54, height: 58, borderRadius: 12, backgroundColor: C.card2, alignItems: 'center', justifyContent: 'center' },
+  badgeN: { color: C.text, fontSize: 22, fontWeight: '600' },
+  badgeM: { color: C.accentText, fontSize: 12, fontWeight: '600', textTransform: 'uppercase' },
+  timeBig: { color: C.text, fontSize: 20, fontWeight: '600', fontVariant: ['tabular-nums'], minWidth: 62 },
 
   // Shop
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 14, marginTop: 18 },
-  product: { width: '48.5%', backgroundColor: C.card, ...hair, padding: 10, paddingBottom: 12 },
-  productTile: { aspectRatio: 1, backgroundColor: C.tileA, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
-  productTileBig: { height: 220, backgroundColor: C.tileA, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+  product: { width: '48.5%', backgroundColor: C.card, borderRadius: 18, padding: 10, paddingBottom: 12 },
+  productTile: { aspectRatio: 1, backgroundColor: C.tileA, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+  productTileBig: { height: 220, backgroundColor: C.tileA, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
   productImg: { width: '88%', height: '88%' },
   productImgBig: { width: '88%', height: '88%' },
-  prodName: { color: C.text, fontSize: 14, fontWeight: '700', lineHeight: 19, letterSpacing: 0.2 },
-  prodDesc: { ...ital(15), color: C.muted, marginTop: 1 },
-  cartImg: { width: 44, height: 44, backgroundColor: C.tileA, marginRight: 12 },
+  prodName: { color: C.text, fontSize: 15, fontWeight: '600', lineHeight: 20, letterSpacing: -0.2 },
+  prodDesc: { color: C.muted, fontSize: 13, lineHeight: 18, marginTop: 1 },
+  cartImg: { width: 44, height: 44, borderRadius: 8, backgroundColor: C.tileA, marginRight: 12 },
   productFoot: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 },
-  plus: { width: 32, height: 32, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center' },
-  cartBar: { position: 'absolute', left: 16, right: 16, bottom: 16, flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: C.accent, paddingVertical: 16, paddingHorizontal: 18 },
-  cartT: { ...lab(13, 1.8), color: C.onAccent, fontWeight: '700' },
-  // Sul web lo scuro viene dall'ombra della scheda (copre anche i lati su schermo largo); sul telefono è lo sfondo qui sopra
+  plus: { width: 32, height: 32, borderRadius: 16, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center' },
+  cartBar: { position: 'absolute', left: 16, right: 16, bottom: 16, flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: C.accent, borderRadius: 26, paddingVertical: 15, paddingHorizontal: 22 },
+  cartT: { color: C.onAccent, fontSize: 17, fontWeight: '600' },
+  // Pannelli: sul web lo scuro viene dall'ombra della scheda (copre anche i lati su schermo largo); sul telefono è lo sfondo qui sopra
   backdrop: { flex: 1, backgroundColor: Platform.OS === 'web' ? 'transparent' : C.scrim },
-  sheet: { width: '100%', maxWidth: 560, alignSelf: 'center', backgroundColor: C.card, borderTopWidth: 1, borderLeftWidth: 1, borderRightWidth: 1, borderColor: C.accentLine2, padding: 22, paddingBottom: 34, ...(Platform.OS === 'web' ? ({ boxShadow: `0 0 0 100vmax ${C.scrim}` } as any) : null) },
-  qtyBtn: { width: 32, height: 32, backgroundColor: C.card2, ...hair, alignItems: 'center', justifyContent: 'center', marginLeft: 8 },
-  qtyT: { color: C.text, fontSize: 16, fontWeight: '800', minWidth: 22, textAlign: 'center', marginLeft: 8 },
+  sheet: { width: '100%', maxWidth: 560, alignSelf: 'center', backgroundColor: C.card, borderTopLeftRadius: 26, borderTopRightRadius: 26, padding: 22, paddingTop: 12, paddingBottom: 34, ...(Platform.OS === 'web' ? ({ boxShadow: `0 0 0 100vmax ${C.scrim}` } as any) : null) },
+  grab: { alignSelf: 'center', width: 36, height: 5, borderRadius: 3, backgroundColor: C.muted, opacity: 0.45, marginBottom: 16 },
+  qtyBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: C.card2, alignItems: 'center', justifyContent: 'center', marginLeft: 8 },
+  qtyT: { color: C.text, fontSize: 17, fontWeight: '600', minWidth: 22, textAlign: 'center', marginLeft: 8 },
 
-  // Barbieri
+  // Barbieri e liste raggruppate
   barber: { width: '48.5%' },
-  barberPhoto: { width: '100%', aspectRatio: 1, backgroundColor: C.card2, ...hair },
-  barberName: { ...disp(23, 0.8), color: C.text, marginTop: 10 },
-  camera: { position: 'absolute', top: 8, right: 8, width: 28, height: 28, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center' },
-  menuIcon: { width: 42, height: 42, backgroundColor: C.accentSoft, borderWidth: 1, borderColor: C.accentLine, alignItems: 'center', justifyContent: 'center' },
+  barberPhoto: { width: '100%', aspectRatio: 1, borderRadius: 20, backgroundColor: C.card2 },
+  barberName: { color: C.text, fontSize: 17, fontWeight: '600', letterSpacing: -0.3, marginTop: 10 },
+  camera: { position: 'absolute', top: 10, right: 10, width: 30, height: 30, borderRadius: 15, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center' },
+  menuIcon: { width: 30, height: 30, borderRadius: 7, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center' },
+  grp: { backgroundColor: C.card, borderRadius: 18, overflow: 'hidden' },
+  grpRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 16 },
+  grpSep: { height: HL, backgroundColor: C.line, marginLeft: 60 },
 
   // Carta fedeltà e incassi
-  loyHero: { backgroundColor: C.loyA, borderWidth: 1, borderColor: C.accentLine, padding: 22 },
+  loyHero: { backgroundColor: C.loyA, borderRadius: 22, padding: 20, overflow: 'hidden' },
   heroTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  heroLabel: { ...lab(11, 2.6), color: C.accentText },
-  heroNum: { ...disp(68, 1), color: C.text, marginTop: 10 },
-  heroOf: { ...disp(30, 0.5), color: C.muted },
+  heroLabel: { color: C.accentText, fontSize: 15, fontWeight: '600', letterSpacing: -0.2 },
+  heroNum: { color: C.text, fontSize: 56, fontWeight: '700', letterSpacing: -2, marginTop: 8 },
+  heroOf: { color: C.muted, fontSize: 24, fontWeight: '600', letterSpacing: 0 },
   stamps: { flexDirection: 'row', gap: 6, marginTop: 18, marginBottom: 14 },
-  stamp: { flex: 1, aspectRatio: 1, borderWidth: 1, borderColor: C.accentLine, alignItems: 'center', justifyContent: 'center' },
-  stampOn: { backgroundColor: C.accent, borderColor: C.accent },
-  track: { height: 5, backgroundColor: C.line, flexDirection: 'row', overflow: 'hidden' },
-  fill: { height: 5, backgroundColor: C.accent },
+  stamp: { flex: 1, aspectRatio: 1, borderRadius: 99, backgroundColor: C.card2, alignItems: 'center', justifyContent: 'center' },
+  stampOn: { backgroundColor: C.accent },
+  track: { height: 6, borderRadius: 3, backgroundColor: C.card2, flexDirection: 'row', overflow: 'hidden' },
+  fill: { height: 6, backgroundColor: C.accent },
   barHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
 
-  kpi: { backgroundColor: C.card, ...hair, paddingVertical: 12, paddingHorizontal: 16, minWidth: 104 },
-  kpiBig: { ...disp(30, 0.5), color: C.text },
+  kpi: { backgroundColor: C.card2, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 16, minWidth: 104 },
+  kpiBig: { color: C.text, fontSize: 22, fontWeight: '600', letterSpacing: -0.4 },
   cols: { flexDirection: 'row', alignItems: 'flex-end', height: 124, gap: 2 },
   colWrap: { flex: 1, justifyContent: 'flex-end' },
-  col: { backgroundColor: C.accent },
+  col: { backgroundColor: C.accent, borderTopLeftRadius: 3, borderTopRightRadius: 3 },
 
-  // Pagina iniziale (sempre su foto scura, come sul sito) e accesso
-  welcome: { flex: 1, backgroundColor: '#0C0C0C', paddingHorizontal: 28 },
-  welBrand: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: 18 },
-  welLine: { width: 56, height: 1, backgroundColor: C.welLine, marginTop: 20 },
-  welSub: { ...ital(24), color: '#F4F1E8', textAlign: 'center', marginTop: 18 },
-  welSub2: { color: 'rgba(244,241,232,0.72)', fontSize: 14, lineHeight: 21, textAlign: 'center', marginTop: 10, maxWidth: 290 },
-  welActions: { width: '100%', maxWidth: 420, alignSelf: 'center', gap: 12 },
-  welPrimary: { height: 56, flexDirection: 'row', gap: 12, backgroundColor: '#C4A868', alignItems: 'center', justifyContent: 'center' },
-  welPrimaryT: { ...lab(14, 2.8), color: '#14110D', fontWeight: '700' },
-  welGhost: { height: 56, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(196,168,104,0.7)' },
-  welGhostT: { ...lab(14, 2.8), color: '#C4A868', fontWeight: '700' },
-
-  authPad: { paddingHorizontal: 24 },
-  authBack: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', marginLeft: -6, paddingVertical: 6 },
-  authMini: { alignSelf: 'flex-start', marginTop: 14, marginBottom: 22 },
-  fieldLabel: { ...lab(10.5, 2), color: C.muted, fontWeight: '700', marginBottom: 6 },
-  fieldBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.card, ...hair, paddingHorizontal: 14 },
-  fieldFocus: { borderColor: C.accentBorder },
-  fieldInput: { flex: 1, minWidth: 0, color: C.text, fontSize: 16, paddingVertical: 14 },
-  fieldErr: { color: C.danger, fontSize: 12.5, marginTop: 5 },
-  formErr: { color: C.danger, fontSize: 14, lineHeight: 20, marginTop: 14 },
+  // Campi dei moduli (Profilo, Contatti)
+  fieldLabel: { color: C.muted, fontSize: 13, fontWeight: '500', letterSpacing: 0.3, textTransform: 'uppercase', marginBottom: 6, marginLeft: 4 },
+  fieldBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.card2, borderRadius: 12, borderWidth: 1.5, borderColor: 'transparent', paddingHorizontal: 14 },
+  fieldFocus: { borderColor: C.accent },
+  fieldInput: { flex: 1, minWidth: 0, color: C.text, fontSize: 17, paddingVertical: 13 },
+  fieldErr: { color: C.danger, fontSize: 12.5, marginTop: 5, marginLeft: 4 },
 
   // Conferma dopo la registrazione
   doneRoot: { flex: 1, backgroundColor: C.bg },
   doneBody: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 28 },
-  doneIcon: { width: 112, height: 112, alignItems: 'center', justifyContent: 'center', marginBottom: 26 },
-  doneKicker: { ...lab(11, 3), color: C.accentText },
-  doneTitle: { ...disp(52, 1), color: C.text, textAlign: 'center', marginTop: 12, marginBottom: 14 },
+  doneIcon: { width: 96, height: 96, borderRadius: 48, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center', marginBottom: 26 },
+  doneKicker: { color: C.accentText, fontSize: 13, fontWeight: '600', letterSpacing: 0.6 },
+  doneTitle: { color: C.text, fontSize: 34, fontWeight: '700', letterSpacing: -0.8, textAlign: 'center', marginTop: 10, marginBottom: 14 },
   doneSub: { color: C.muted, fontSize: 16, lineHeight: 24, textAlign: 'center' },
-  doneMail: { color: C.accentText, fontSize: 17, fontWeight: '800', textAlign: 'center', marginVertical: 6 },
-  doneBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 16 },
-  doneBtnT: { ...lab(13, 2), color: C.text, fontWeight: '700' },
+  doneMail: { color: C.accentText, fontSize: 17, fontWeight: '600', textAlign: 'center', marginVertical: 6 },
 
   // Prenotazione: barbieri e barra in basso
   pickRow: { paddingHorizontal: 20, gap: 12, paddingBottom: 4 },
   pickRowCard: { paddingHorizontal: 16, gap: 12 },
-  bCard: { width: 116, alignItems: 'center', padding: 10, backgroundColor: C.card, ...hair },
-  bCardOn: { borderColor: C.accentBorder, backgroundColor: C.accentSoft },
-  bPhoto: { width: 94, height: 94, backgroundColor: C.card2, ...hair },
-  bIni: { ...disp(40, 1), color: C.accentText },
-  bCheck: { position: 'absolute', right: -6, bottom: -6, width: 22, height: 22, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: C.bg },
-  bFav: { position: 'absolute', left: -6, top: -6, width: 20, height: 20, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: C.bg },
-  bName: { ...lab(11, 1), color: C.text, fontWeight: '700', textAlign: 'center', marginTop: 10, minHeight: 32, lineHeight: 16 },
+  bCard: { width: 116, alignItems: 'center', padding: 10, borderRadius: 18, borderWidth: 2, borderColor: 'transparent', backgroundColor: C.card },
+  bCardOn: { borderColor: C.accent },
+  bPhoto: { width: 92, height: 92, borderRadius: 46, backgroundColor: C.card2 },
+  bIni: { color: C.accentText, fontSize: 30, fontWeight: '700' },
+  bCheck: { position: 'absolute', right: -2, bottom: -2, width: 24, height: 24, borderRadius: 12, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: C.card },
+  bFav: { position: 'absolute', left: -2, top: -2, width: 22, height: 22, borderRadius: 11, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: C.card },
+  bName: { color: C.text, fontSize: 14, fontWeight: '600', textAlign: 'center', marginTop: 10, minHeight: 36 },
   hisHead: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 },
-  hisKicker: { ...lab(10, 2.4), color: C.accentText, marginBottom: 2 },
+  hisKicker: { color: C.accentText, fontSize: 12, fontWeight: '600', letterSpacing: 0.5, marginBottom: 2 },
   hisStats: { flexDirection: 'row', gap: 10 },
-  hisTile: { flex: 1, backgroundColor: C.card, ...hair, paddingVertical: 14, paddingHorizontal: 10, alignItems: 'center' },
-  hisNum: { ...disp(32, 0.5), color: C.text },
-  hisLbl: { ...lab(9.5, 1.4), color: C.muted, marginTop: 3, textAlign: 'center' },
-  hisSection: { ...lab(11, 2.2), color: C.muted, marginTop: 18, marginBottom: 8 },
-  hisRow: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: C.card, ...hair, padding: 12, marginBottom: 8 },
-  hisDate: { width: 48, height: 52, backgroundColor: C.accentSoft, borderWidth: 1, borderColor: C.accentLine, alignItems: 'center', justifyContent: 'center' },
-  hisDay: { ...disp(26, 0.4), color: C.accentText, lineHeight: 28 },
-  hisMon: { ...lab(10, 1.2), color: C.accentText, fontWeight: '700' },
+  hisTile: { flex: 1, backgroundColor: C.card, borderRadius: 16, paddingVertical: 14, paddingHorizontal: 10, alignItems: 'center' },
+  hisNum: { color: C.text, fontSize: 22, fontWeight: '600', letterSpacing: -0.4 },
+  hisLbl: { color: C.muted, fontSize: 12, fontWeight: '500', marginTop: 3, textAlign: 'center' },
+  hisSection: { color: C.muted, fontSize: 13, fontWeight: '500', letterSpacing: 0.3, textTransform: 'uppercase', marginTop: 18, marginBottom: 8, marginLeft: 4 },
+  hisRow: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: C.card, borderRadius: 16, padding: 12, marginBottom: 8 },
+  hisDate: { width: 48, height: 52, borderRadius: 12, backgroundColor: C.card2, alignItems: 'center', justifyContent: 'center' },
+  hisDay: { color: C.text, fontSize: 19, fontWeight: '600', lineHeight: 22 },
+  hisMon: { color: C.accentText, fontSize: 11, fontWeight: '600', textTransform: 'uppercase' },
   hisState: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  hisTag: { ...lab(10, 1.2), fontWeight: '700' },
-  hisEmpty: { alignItems: 'center', backgroundColor: C.card, ...hair, paddingVertical: 24, paddingHorizontal: 22 },
-  bookBar: { position: 'absolute', left: 14, right: 14, bottom: 12, flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: C.card, borderWidth: 1, borderColor: C.accentLine2, padding: 12, paddingLeft: 16, shadowColor: C.shadow, shadowOpacity: C.shadowO, shadowRadius: 16, shadowOffset: { width: 0, height: 6 } },
-  bookGo: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.accent, paddingVertical: 14, paddingHorizontal: 18 },
+  hisTag: { fontSize: 12, fontWeight: '700' },
+  hisEmpty: { alignItems: 'center', backgroundColor: C.card, borderRadius: 18, paddingVertical: 24, paddingHorizontal: 22 },
+  bookBar: { position: 'absolute', left: 14, right: 14, bottom: 12, flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: C.card, borderRadius: 24, borderWidth: HL, borderColor: C.line, padding: 12, paddingLeft: 18, shadowColor: C.shadow, shadowOpacity: C.shadowO, shadowRadius: 18, shadowOffset: { width: 0, height: 6 } },
+  bookGo: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.accent, borderRadius: 22, paddingVertical: 13, paddingHorizontal: 20 },
 
   // Pagina del calendario
   calRoot: { flex: 1, backgroundColor: C.bg },
-  calTop: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, paddingBottom: 12 },
-  calTitle: { ...disp(40, 1), color: C.text },
+  calTop: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, paddingBottom: 10 },
+  calTitle: { color: C.text, fontSize: 28, fontWeight: '700', letterSpacing: -0.6 },
   calBody: { padding: 16, paddingBottom: 30 },
-  calCard: { backgroundColor: C.calCard, ...hair, padding: 16 },
+  calCard: { backgroundColor: C.calCard, borderRadius: 20, padding: 14 },
   calHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
-  calArrow: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center', ...hair },
-  calMonth: { ...disp(36, 1), color: C.text, lineHeight: 38 },
-  calYear: { ...lab(11, 3.2), color: C.accentText, fontWeight: '700' },
+  calArrow: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center' },
+  calMonth: { color: C.text, fontSize: 24, lineHeight: 30, fontWeight: '700', letterSpacing: -0.4 },
+  calYear: { color: C.accentText, fontSize: 13, fontWeight: '600', letterSpacing: 0.4 },
   calGrid: { flexDirection: 'row', flexWrap: 'wrap' },
   calCellHead: { width: '14.28%', alignItems: 'center', paddingVertical: 8 },
-  calWeekT: { ...lab(10.5, 1.2), color: C.muted, fontWeight: '700' },
-  calCell: { width: '14.28%', aspectRatio: 1, alignItems: 'center', justifyContent: 'center', padding: 2 },
-  calDay: { width: '100%', height: '100%', borderWidth: 1, borderColor: 'transparent', alignItems: 'center', justifyContent: 'center' },
-  calToday: { borderColor: C.accentLine2 },
-  calSel: { backgroundColor: C.accent, borderColor: C.accent },
-  calNum: { color: C.text, fontSize: 16, fontWeight: '600' },
+  calWeekT: { color: C.muted, fontSize: 12, fontWeight: '600' },
+  calCell: { width: '14.28%', aspectRatio: 1, alignItems: 'center', justifyContent: 'center', padding: 3 },
+  calDay: { width: '100%', height: '100%', borderRadius: 99, alignItems: 'center', justifyContent: 'center' },
+  calToday: { backgroundColor: C.accentSoft },
+  calSel: { backgroundColor: C.accent },
+  calNum: { color: C.text, fontSize: 17, fontWeight: '500' },
   calOff: { color: C.calOff, fontWeight: '500' },
-  calDot: { position: 'absolute', bottom: 5, width: 4, height: 4, backgroundColor: C.accent },
-  calDot2: { width: 6, height: 6, backgroundColor: C.accent, marginRight: 8 },
+  calDot: { position: 'absolute', bottom: 3, width: 4, height: 4, borderRadius: 2, backgroundColor: C.accent },
+  calDot2: { width: 6, height: 6, borderRadius: 3, backgroundColor: C.accent, marginRight: 8 },
   calLegend: { flexDirection: 'row', alignItems: 'center', marginTop: 8, paddingHorizontal: 4 },
-  calSlotsTitle: { ...disp(30, 1), color: C.text, marginTop: 26, marginBottom: 12 },
-  calBar: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 18, paddingTop: 12, borderTopWidth: 1, borderTopColor: C.line, backgroundColor: C.calBar },
+  calSlotsTitle: { color: C.text, fontSize: 22, fontWeight: '700', letterSpacing: -0.4, marginTop: 26, marginBottom: 12 },
+  calBar: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 18, paddingTop: 12, borderTopWidth: HL, borderTopColor: C.line, backgroundColor: C.calBar },
 
   // Profilo
-  profName: { ...disp(28, 0.8), color: C.text },
+  profName: { color: C.text, fontSize: 21, fontWeight: '600', letterSpacing: -0.4 },
   profRow: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 8 },
 
   // Contatti
   infoRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12 },
   infoT: { flex: 1, color: C.text, fontSize: 15, lineHeight: 21 },
-  prefBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 16, paddingVertical: 12, borderWidth: 1, borderColor: C.accentLine2 },
-  prefBtnT: { ...lab(12, 1.6), color: C.accentText, fontWeight: '700' },
+  prefBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 16, paddingVertical: 12, borderRadius: 12, backgroundColor: C.accentSoft },
+  prefBtnT: { color: C.accentText, fontSize: 16, fontWeight: '600' },
   actRow: { flexDirection: 'row', gap: 10 },
   actBtn: { alignItems: 'center', gap: 8, paddingVertical: 18 },
-  actT: { ...lab(10.5, 1.6), color: C.text, fontWeight: '700' },
+  actT: { color: C.accentText, fontSize: 12, fontWeight: '500' },
   openRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
-  openDot: { width: 9, height: 9, borderRadius: 5 },
-  hoursRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: C.line },
-  hoursDay: { color: C.text, fontSize: 15, fontWeight: '700' },
-  hoursT: { color: C.text, fontSize: 15, fontVariant: ['tabular-nums'] },
+  openDot: { width: 10, height: 10, borderRadius: 5 },
+  hoursRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 11, borderBottomWidth: HL, borderBottomColor: C.line },
+  hoursDay: { color: C.text, fontSize: 16, fontWeight: '500' },
+  hoursT: { color: C.muted, fontSize: 16, fontVariant: ['tabular-nums'] },
 
   // Preferiti, mappa
-  favBtn: { position: 'absolute', top: 8, right: 8, width: 32, height: 32, backgroundColor: 'rgba(12,12,12,0.72)', borderWidth: 1, borderColor: 'rgba(196,168,104,0.6)', alignItems: 'center', justifyContent: 'center' },
-  mapBox: { height: MAP_H, overflow: 'hidden', ...hair },
+  favBtn: { position: 'absolute', top: 10, right: 10, width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' },
+  mapBox: { height: MAP_H, borderRadius: 18, overflow: 'hidden' },
   mapFallback: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', padding: 20 },
   mapTag: { position: 'absolute', right: 10, bottom: 10 },
-  mapTagT: { ...lab(10.5, 1.4), color: C.text, fontWeight: '700' },
-  mapAttr: { position: 'absolute', left: 8, bottom: 6, color: 'rgba(248,244,234,0.7)', fontSize: 10, backgroundColor: 'rgba(0,0,0,0.45)', paddingHorizontal: 5, paddingVertical: 1, overflow: 'hidden' },
+  mapTagT: { color: C.text, fontSize: 13, fontWeight: '600' },
+  mapAttr: { position: 'absolute', left: 8, bottom: 6, color: 'rgba(248,244,234,0.7)', fontSize: 10, backgroundColor: 'rgba(0,0,0,0.45)', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4, overflow: 'hidden' },
   pinWrap: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
   pinRing: { width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(196,168,104,0.28)', borderWidth: 1.5, borderColor: 'rgba(196,168,104,0.8)' },
 
   // Agenda della sede (griglia barbieri × orari)
   agBar: { paddingHorizontal: 16, paddingTop: 12, gap: 10 },
-  agDay: { width: 50, alignItems: 'center', paddingVertical: 6, backgroundColor: C.card, ...hair },
-  agDayW: { ...lab(9.5, 1.2), color: C.muted },
-  agDayN: { ...disp(22, 0.4), color: C.text, lineHeight: 24 },
-  agTitle: { ...disp(22, 0.8), color: C.text, flexShrink: 1 },
-  agHeadRow: { flexDirection: 'row', backgroundColor: C.bg, borderTopWidth: 1, borderTopColor: C.line, borderBottomWidth: 1, borderBottomColor: C.accentLine2 },
-  agHead: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 8, paddingVertical: 8, borderLeftWidth: 1, borderLeftColor: C.line },
-  agHeadName: { ...disp(17, 0.6), color: C.text },
+  agDay: { width: 50, alignItems: 'center', paddingVertical: 6, borderRadius: 12, backgroundColor: C.card2 },
+  agDayW: { color: C.muted, fontSize: 11, fontWeight: '600', textTransform: 'capitalize' },
+  agDayN: { color: C.text, fontSize: 19, fontWeight: '600', lineHeight: 22 },
+  agTitle: { color: C.text, fontSize: 22, fontWeight: '700', letterSpacing: -0.4, flexShrink: 1 },
+  agHeadRow: { flexDirection: 'row', backgroundColor: C.bg, borderTopWidth: HL, borderTopColor: C.line, borderBottomWidth: HL, borderBottomColor: C.line },
+  agHead: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 8, paddingVertical: 8, borderLeftWidth: HL, borderLeftColor: C.line },
+  agHeadName: { color: C.text, fontSize: 15, fontWeight: '600' },
   agHeadSub: { color: C.muted, fontSize: 11.5, marginTop: 1 },
   agTime: { position: 'absolute', left: 0, width: AG_TIME_W, textAlign: 'center', color: C.muted, fontSize: 11.5, fontVariant: ['tabular-nums'] },
   agTimeH: { color: C.text, fontWeight: '700', fontSize: 12.5 },
-  agCol: { borderLeftWidth: 1, borderLeftColor: C.line, backgroundColor: C.card2 },
+  agCol: { borderLeftWidth: HL, borderLeftColor: C.line, backgroundColor: C.bg },
   agShift: { position: 'absolute', left: 0, right: 0, backgroundColor: C.card },
-  agLine: { position: 'absolute', left: 0, right: 0, height: 1, backgroundColor: C.line, opacity: 0.5 },
+  agLine: { position: 'absolute', left: 0, right: 0, height: HL, backgroundColor: C.line, opacity: 0.6 },
   agLineH: { opacity: 1 },
-  agSlot: { position: 'absolute', left: 4, right: 4, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, borderWidth: 1, borderStyle: 'dashed', borderColor: C.accentLine },
-  agSlotOff: { borderColor: 'transparent', opacity: 0.4 },
+  agSlot: { position: 'absolute', left: 4, right: 4, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, borderRadius: 8, backgroundColor: C.slot },
+  agSlotOff: { backgroundColor: 'transparent', opacity: 0.4 },
   agSlotT: { color: C.accentText, fontSize: 12.5, fontWeight: '700', fontVariant: ['tabular-nums'] },
-  agBlk: { position: 'absolute', left: 4, right: 4, paddingHorizontal: 8, paddingVertical: 4, gap: 1, overflow: 'hidden', backgroundColor: C.accentSoft, borderWidth: 1, borderColor: C.accentLine2, borderLeftWidth: 3, borderLeftColor: C.accent },
-  agBlkDone: { backgroundColor: C.card2, borderColor: C.line, borderLeftColor: C.ok, opacity: 0.8 },
-  agBlkMiss: { backgroundColor: C.dangerSoft, borderColor: C.line, borderLeftColor: C.danger },
-  agBlkOther: { backgroundColor: C.card2, borderColor: C.line, borderLeftColor: C.muted, justifyContent: 'center' },
-  agBlkWho: { flex: 1, color: C.text, fontSize: 14, fontWeight: '700' },
+  agBlk: { position: 'absolute', left: 4, right: 4, paddingHorizontal: 8, paddingVertical: 4, gap: 1, overflow: 'hidden', borderRadius: 8, backgroundColor: C.accentSoft, borderLeftWidth: 3, borderLeftColor: C.accent },
+  agBlkDone: { backgroundColor: C.card2, borderLeftColor: C.ok, opacity: 0.8 },
+  agBlkMiss: { backgroundColor: C.dangerSoft, borderLeftColor: C.danger },
+  agBlkOther: { backgroundColor: C.card2, borderLeftColor: C.muted, justifyContent: 'center' },
+  agBlkWho: { flex: 1, color: C.text, fontSize: 14, fontWeight: '600' },
   agBlkTime: { color: C.accentText, fontSize: 12.5, fontWeight: '700', fontVariant: ['tabular-nums'] },
   agBlkSvc: { color: C.muted, fontSize: 12.5 },
-  agTag: { ...lab(9, 0.6), fontWeight: '800', color: C.onAccent, backgroundColor: C.accent, paddingHorizontal: 4, paddingVertical: 1, overflow: 'hidden' },
-  agOff: { position: 'absolute', left: 4, right: 4, padding: 8, gap: 4, alignItems: 'center', justifyContent: 'center', backgroundColor: C.card2, borderWidth: 1, borderColor: C.line, opacity: 0.95 },
+  agTag: { fontSize: 9, letterSpacing: 0.6, fontWeight: '700', color: C.onAccent, backgroundColor: C.accent, paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4, overflow: 'hidden' },
+  agOff: { position: 'absolute', left: 4, right: 4, padding: 8, gap: 4, alignItems: 'center', justifyContent: 'center', borderRadius: 8, backgroundColor: C.card2, opacity: 0.95 },
   agOffT: { color: C.muted, fontSize: 12.5, textAlign: 'center' },
-  agPause: { position: 'absolute', left: 0, flexDirection: 'row', alignItems: 'center', gap: 10, paddingLeft: AG_TIME_W + 14, backgroundColor: C.card2, borderTopWidth: 1, borderBottomWidth: 1, borderColor: C.line },
-  agPauseT: { ...lab(11, 1.8), color: C.muted, fontWeight: '700' },
+  agPause: { position: 'absolute', left: 0, flexDirection: 'row', alignItems: 'center', gap: 10, paddingLeft: AG_TIME_W + 14, backgroundColor: C.card, borderTopWidth: HL, borderBottomWidth: HL, borderColor: C.line },
+  agPauseT: { color: C.muted, fontSize: 12, fontWeight: '700', letterSpacing: 0.4 },
   agNow: { position: 'absolute', left: AG_TIME_W - 5, right: 0, height: 2, backgroundColor: C.danger },
   agNowDot: { position: 'absolute', left: 0, top: -4, width: 10, height: 10, borderRadius: 5, backgroundColor: C.danger },
   agSheet: { width: '100%', maxWidth: 560, alignSelf: 'center' },
